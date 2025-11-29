@@ -1,0 +1,20 @@
+---
+# System Role Handlers
+
+- name: reload sysctl
+  command: sysctl -p
+  changed_when: false
+
+- name: restart chrony
+  service:
+    name: "{{ 'chrony' if ansible_os_family == 'Debian' else 'chronyd' }}"
+    state: restarted
+
+- name: restart ntp
+  service:
+    name: ntp
+    state: restarted
+
+- name: reload systemd daemon
+  systemd:
+    daemon_reload: yes

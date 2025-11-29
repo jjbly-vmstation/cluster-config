@@ -1,0 +1,32 @@
+---
+# Storage Configuration Management Role
+# Enforces filesystem mounts and storage configuration
+
+- name: Deploy fstab configuration
+  copy:
+    src: "{{ playbook_dir }}/../hosts/{{ os_type }}/fstab"
+    dest: /etc/fstab
+    owner: root
+    group: root
+    mode: '0644'
+    backup: yes
+  when: lookup('fileglob', playbook_dir ~ '/../hosts/' ~ os_type ~ '/fstab') | length > 0
+  notify: reload systemd daemon
+
+- name: Ensure all mounts from fstab are mounted
+  command: mount -a
+  register: mount_result
+  changed_when: false
+  failed_when: false
+
+- name: Display mount status
+  debug:
+    msg: "Mount command result: {{ mount_result.stdout }}"
+  when: mount_result.stdout | length > 0
+
+- name: Verify critical mounts are present
+  mount:
+    path: "{{ item.path }}"
+    state: mounted
+  loop: "{{ critical_mounts | default([]) }}"
+  when: critical_mounts is defined

@@ -1,0 +1,8 @@
+# Example NFS mount entry for fstab
+# Copy and customize for your storage nodes
+
+# NFS server mount
+nfs-server.example.com:/export/share  /mnt/nfs  nfs  defaults,_netdev  0  0
+
+# NFS with specific options
+nfs-server.example.com:/export/data   /data     nfs  rw,hard,intr,rsize=8192,wsize=8192,timeo=14  0  0

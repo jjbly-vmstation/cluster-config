@@ -1,0 +1,236 @@
+---
+# Gather Baseline Configurations from All Cluster Machines
+# This playbook safely collects critical configurations to establish a baseline
+# Usage: ansible-playbook -i ../inventory/hosts.ini playbooks/gather-baseline.yml
+
+- name: Gather Baseline Configuration from All Hosts
+  hosts: all
+  gather_facts: yes
+  
+  vars:
+    config_base_path: "{{ playbook_dir }}/../hosts"
+    backup_timestamp: "{{ ansible_date_time.epoch }}"
+  
+  tasks:
+    - name: Display collection information
+      debug:
+        msg: "Collecting baseline configuration from {{ inventory_hostname }} ({{ ansible_distribution }} {{ ansible_distribution_version }})"
+    
+    - name: Create host configuration directory on controller
+      file:
+        path: "{{ config_base_path }}/{{ inventory_hostname }}"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+      become: no
+    
+    - name: Create subdirectories for host configs
+      file:
+        path: "{{ config_base_path }}/{{ inventory_hostname }}/{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - systemd-networkd
+        - NetworkManager
+        - systemd
+      delegate_to: localhost
+      become: no
+    
+    # SSH Configuration
+    - name: Fetch SSH daemon configuration
+      fetch:
+        src: /etc/ssh/sshd_config
+        dest: "{{ config_base_path }}/{{ inventory_hostname }}/sshd_config"
+        flat: yes
+      become: yes
+    
+    # Filesystem Mounts
+    - name: Fetch fstab
+      fetch:
+        src: /etc/fstab
+        dest: "{{ config_base_path }}/{{ inventory_hostname }}/fstab"
+        flat: yes
+      become: yes
+    
+    # Kernel Parameters
+    - name: Check if sysctl.conf exists
+      stat:
+        path: /etc/sysctl.conf
+      register: sysctl_file
+      become: yes
+    
+    - name: Fetch sysctl.conf
+      fetch:
+        src: /etc/sysctl.conf
+        dest: "{{ config_base_path }}/{{ inventory_hostname }}/sysctl.conf"
+        flat: yes
+      when: sysctl_file.stat.exists
+      become: yes
+    
+    # Time Synchronization - Chrony
+    - name: Check for chrony.conf (Debian path)
+      stat:
+        path: /etc/chrony/chrony.conf
+      register: chrony_debian
+      become: yes
+    
+    - name: Fetch chrony.conf (Debian)
+      fetch:
+        src: /etc/chrony/chrony.conf
+        dest: "{{ config_base_path }}/{{ inventory_hostname }}/chrony.conf"
+        flat: yes
+      when: chrony_debian.stat.exists
+      become: yes
+    
+    - name: Check for chrony.conf (RHEL path)
+      stat:
+        path: /etc/chrony.conf
+      register: chrony_rhel
+      become: yes
+      when: not chrony_debian.stat.exists
+    
+    - name: Fetch chrony.conf (RHEL)
+      fetch:
+        src: /etc/chrony.conf
+        dest: "{{ config_base_path }}/{{ inventory_hostname }}/chrony.conf"
+        flat: yes
+      when: not chrony_debian.stat.exists and chrony_rhel.stat.exists
+      become: yes
+    
+    # Network Configuration - Debian/Ubuntu
+    - name: Check for interfaces file
+      stat:
+        path: /etc/network/interfaces
+      register: interfaces_file
+      become: yes
+    
+    - name: Fetch network interfaces (Debian ifupdown)
+      fetch:
+        src: /etc/network/interfaces
+        dest: "{{ config_base_path }}/{{ inventory_hostname }}/interfaces"
+        flat: yes
+      when: interfaces_file.stat.exists
+      become: yes
+    
+    # Network Configuration - systemd-networkd
+    - name: Check for systemd-networkd configs
+      find:
+        paths: /etc/systemd/network
+        patterns: "*.network"
+      register: networkd_files
+      become: yes
+      failed_when: false
+    
+    - name: Fetch systemd-networkd configs
+      fetch:
+        src: "{{ item.path }}"
+        dest: "{{ config_base_path }}/{{ inventory_hostname }}/systemd-networkd/{{ item.path | basename }}"
+        flat: yes
+      loop: "{{ networkd_files.files }}"
+      when: networkd_files.matched > 0
+      become: yes
+    
+    # Network Configuration - NetworkManager (RHEL)
+    - name: Check for NetworkManager connection files
+      find:
+        paths: /etc/NetworkManager/system-connections
+        patterns: "*.nmconnection"
+      register: nm_files
+      become: yes
+      failed_when: false
+    
+    - name: Fetch NetworkManager connection files
+      fetch:
+        src: "{{ item.path }}"
+        dest: "{{ config_base_path }}/{{ inventory_hostname }}/NetworkManager/{{ item.path | basename }}"
+        flat: yes
+      loop: "{{ nm_files.files }}"
+      when: nm_files.matched > 0
+      become: yes
+    
+    # Network Configuration - Legacy RHEL network scripts
+    - name: Check for legacy network scripts
+      find:
+        paths: /etc/sysconfig/network-scripts
+        patterns: "ifcfg-*"
+      register: ifcfg_files
+      become: yes
+      failed_when: false
+      when: ansible_os_family == "RedHat"
+    
+    - name: Fetch legacy network scripts
+      fetch:
+        src: "{{ item.path }}"
+        dest: "{{ config_base_path }}/{{ inventory_hostname }}/{{ item.path | basename }}"
+        flat: yes
+      loop: "{{ ifcfg_files.files }}"
+      when: 
+        - ansible_os_family == "RedHat"
+        - ifcfg_files.matched is defined
+        - ifcfg_files.matched > 0
+      become: yes
+    
+    # Custom systemd units
+    - name: Check for custom systemd service units
+      find:
+        paths: /etc/systemd/system
+        patterns: "*.service"
+        file_type: file
+        recurse: no
+      register: systemd_services
+      become: yes
+      failed_when: false
+    
+    - name: Fetch custom systemd units
+      fetch:
+        src: "{{ item.path }}"
+        dest: "{{ config_base_path }}/{{ inventory_hostname }}/systemd/{{ item.path | basename }}"
+        flat: yes
+      loop: "{{ systemd_services.files }}"
+      when: systemd_services.matched > 0
+      become: yes
+    
+    # Hostname configuration
+    - name: Fetch hostname
+      fetch:
+        src: /etc/hostname
+        dest: "{{ config_base_path }}/{{ inventory_hostname }}/hostname"
+        flat: yes
+      become: yes
+      failed_when: false
+    
+    # Hosts file
+    - name: Fetch hosts file
+      fetch:
+        src: /etc/hosts
+        dest: "{{ config_base_path }}/{{ inventory_hostname }}/hosts"
+        flat: yes
+      become: yes
+    
+    # Create metadata file
+    - name: Create metadata JSON
+      copy:
+        content: |
+          {
+            "hostname": "{{ inventory_hostname }}",
+            "ansible_host": "{{ ansible_host | default(inventory_hostname) }}",
+            "role": "{{ node_role | default('unknown') }}",
+            "os_type": "{{ 'rhel10' if ansible_os_family == 'RedHat' else 'debian12' }}",
+            "os_distribution": "{{ ansible_distribution }}",
+            "os_release": "{{ ansible_distribution }} {{ ansible_distribution_version }}",
+            "kernel": "{{ ansible_kernel }}",
+            "architecture": "{{ ansible_architecture }}",
+            "collected_at": "{{ ansible_date_time.iso8601 }}",
+            "wol_mac": "{{ wol_mac | default('unknown') }}",
+            "ip_address": "{{ ansible_default_ipv4.address | default('unknown') }}",
+            "gateway": "{{ ansible_default_ipv4.gateway | default('unknown') }}",
+            "dns_nameservers": {{ ansible_dns.nameservers | default([]) | to_json }},
+            "notes": "Baseline configuration captured for {{ inventory_hostname }}"
+          }
+        dest: "{{ config_base_path }}/{{ inventory_hostname }}/.metadata.json"
+      delegate_to: localhost
+      become: no
+    
+    - name: Configuration collection complete
+      debug:
+        msg: "✓ Baseline configuration collected for {{ inventory_hostname }}"

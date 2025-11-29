@@ -1,0 +1,153 @@
+---
+# Validate configuration and detect drift
+# Usage: ansible-playbook -i inventory/hosts.ini playbooks/validate-config.yml
+
+- name: Validate Machine Configurations and Detect Drift
+  hosts: all
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    config_base_path: "{{ playbook_dir }}/../hosts"
+    drift_detected: false
+  
+  tasks:
+    - name: Display validation information
+      debug:
+        msg: "Validating configuration for {{ inventory_hostname }} ({{ os_type }})"
+    
+    # SSH Configuration Validation
+    - name: Check SSH configuration drift
+      block:
+        - name: Get repository SSH config checksum
+          stat:
+            path: "{{ config_base_path }}/{{ os_type }}/sshd_config"
+            checksum_algorithm: sha256
+          delegate_to: localhost
+          register: repo_sshd_config
+        
+        - name: Get live SSH config checksum
+          stat:
+            path: /etc/ssh/sshd_config
+            checksum_algorithm: sha256
+          register: live_sshd_config
+        
+        - name: Compare SSH configurations
+          set_fact:
+            sshd_drift: "{{ repo_sshd_config.stat.checksum != live_sshd_config.stat.checksum }}"
+          when: repo_sshd_config.stat.exists and live_sshd_config.stat.exists
+        
+        - name: Report SSH drift status
+          debug:
+            msg: "SSH configuration: {{ 'DRIFT DETECTED' if sshd_drift | default(false) else 'OK' }}"
+      tags: [ssh, validation]
+    
+    # Fstab Validation
+    - name: Check fstab drift
+      block:
+        - name: Get repository fstab checksum
+          stat:
+            path: "{{ config_base_path }}/{{ os_type }}/fstab"
+            checksum_algorithm: sha256
+          delegate_to: localhost
+          register: repo_fstab
+        
+        - name: Get live fstab checksum
+          stat:
+            path: /etc/fstab
+            checksum_algorithm: sha256
+          register: live_fstab
+        
+        - name: Compare fstab
+          set_fact:
+            fstab_drift: "{{ repo_fstab.stat.checksum != live_fstab.stat.checksum }}"
+          when: repo_fstab.stat.exists and live_fstab.stat.exists
+        
+        - name: Report fstab drift status
+          debug:
+            msg: "Fstab: {{ 'DRIFT DETECTED' if fstab_drift | default(false) else 'OK' }}"
+      tags: [storage, validation]
+    
+    # Sysctl Validation
+    - name: Check sysctl drift
+      block:
+        - name: Get repository sysctl checksum
+          stat:
+            path: "{{ config_base_path }}/{{ os_type }}/sysctl.conf"
+            checksum_algorithm: sha256
+          delegate_to: localhost
+          register: repo_sysctl
+        
+        - name: Get live sysctl checksum
+          stat:
+            path: /etc/sysctl.conf
+            checksum_algorithm: sha256
+          register: live_sysctl
+          when: repo_sysctl.stat.exists
+        
+        - name: Compare sysctl
+          set_fact:
+            sysctl_drift: "{{ repo_sysctl.stat.checksum != live_sysctl.stat.checksum }}"
+          when: repo_sysctl.stat.exists and live_sysctl.stat.exists
+        
+        - name: Report sysctl drift status
+          debug:
+            msg: "Sysctl: {{ 'DRIFT DETECTED' if sysctl_drift | default(false) else 'OK' }}"
+          when: repo_sysctl.stat.exists
+      tags: [system, validation]
+    
+    # Network Configuration Validation (OS-specific)
+    - name: Check Debian network configuration
+      block:
+        - name: Check interfaces file drift
+          stat:
+            path: "{{ config_base_path }}/{{ os_type }}/interfaces"
+            checksum_algorithm: sha256
+          delegate_to: localhost
+          register: repo_interfaces
+        
+        - name: Get live interfaces checksum
+          stat:
+            path: /etc/network/interfaces
+            checksum_algorithm: sha256
+          register: live_interfaces
+          when: repo_interfaces.stat.exists
+        
+        - name: Compare interfaces
+          set_fact:
+            interfaces_drift: "{{ repo_interfaces.stat.checksum != live_interfaces.stat.checksum }}"
+          when: repo_interfaces.stat.exists and live_interfaces.stat.exists
+        
+        - name: Report interfaces drift status
+          debug:
+            msg: "Network interfaces: {{ 'DRIFT DETECTED' if interfaces_drift | default(false) else 'OK' }}"
+          when: repo_interfaces.stat.exists
+      when: os_type == 'debian12'
+      tags: [networking, validation]
+    
+    # Summary
+    - name: Determine overall drift status
+      set_fact:
+        overall_drift: "{{ sshd_drift | default(false) or fstab_drift | default(false) or sysctl_drift | default(false) or interfaces_drift | default(false) }}"
+    
+    - name: Display validation summary
+      debug:
+        msg: |
+          ========================================
+          Validation Summary for {{ inventory_hostname }}
+          ========================================
+          Status: {{ 'DRIFT DETECTED' if overall_drift else 'ALL CHECKS PASSED' }}
+          
+          Remediation:
+          {% if overall_drift %}
+          - Review drift using: ./scripts/check-drift.sh {{ os_type }}
+          - Re-apply config: ansible-playbook -i inventory/hosts.ini playbooks/apply-config.yml --limit {{ inventory_hostname }}
+          - Update repo if changes are intentional: ./scripts/gather-config.sh {{ inventory_hostname }} {{ os_type }}
+          {% else %}
+          - No action required
+          {% endif %}
+    
+    - name: Fail if drift detected (optional)
+      fail:
+        msg: "Configuration drift detected on {{ inventory_hostname }}"
+      when: overall_drift and fail_on_drift | default(false)

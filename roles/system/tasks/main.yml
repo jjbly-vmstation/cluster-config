@@ -1,0 +1,69 @@
+---
+# System Configuration Management Role
+# Enforces kernel parameters and system-level settings
+
+- name: Deploy sysctl configuration
+  copy:
+    src: "{{ playbook_dir }}/../hosts/{{ os_type }}/sysctl.conf"
+    dest: /etc/sysctl.conf
+    owner: root
+    group: root
+    mode: '0644'
+    backup: yes
+  when: lookup('fileglob', playbook_dir ~ '/../hosts/' ~ os_type ~ '/sysctl.conf') | length > 0
+  notify: reload sysctl
+
+- name: Deploy group-level sysctl configuration
+  copy:
+    src: "{{ playbook_dir }}/../group/common/sysctl.conf"
+    dest: /etc/sysctl.d/99-group.conf
+    owner: root
+    group: root
+    mode: '0644'
+  when: lookup('fileglob', playbook_dir ~ '/../group/common/sysctl.conf') | length > 0
+  notify: reload sysctl
+
+- name: Deploy chrony configuration (Debian path)
+  copy:
+    src: "{{ playbook_dir }}/../hosts/{{ os_type }}/chrony.conf"
+    dest: /etc/chrony/chrony.conf
+    owner: root
+    group: root
+    mode: '0644'
+    backup: yes
+  when: 
+    - lookup('fileglob', playbook_dir ~ '/../hosts/' ~ os_type ~ '/chrony.conf') | length > 0
+    - ansible_os_family == 'Debian'
+  notify: restart chrony
+
+- name: Deploy chrony configuration (RHEL path)
+  copy:
+    src: "{{ playbook_dir }}/../hosts/{{ os_type }}/chrony.conf"
+    dest: /etc/chrony.conf
+    owner: root
+    group: root
+    mode: '0644'
+    backup: yes
+  when: 
+    - lookup('fileglob', playbook_dir ~ '/../hosts/' ~ os_type ~ '/chrony.conf') | length > 0
+    - ansible_os_family == 'RedHat'
+  notify: restart chrony
+
+- name: Deploy NTP configuration
+  copy:
+    src: "{{ playbook_dir }}/../hosts/{{ os_type }}/ntp.conf"
+    dest: /etc/ntp.conf
+    owner: root
+    group: root
+    mode: '0644'
+    backup: yes
+  when: lookup('fileglob', playbook_dir ~ '/../hosts/' ~ os_type ~ '/ntp.conf') | length > 0
+  notify: restart ntp
+
+- name: Deploy custom systemd units
+  synchronize:
+    src: "{{ playbook_dir }}/../hosts/{{ os_type }}/systemd/"
+    dest: /etc/systemd/system/
+    delete: no
+  when: lookup('fileglob', playbook_dir ~ '/../hosts/' ~ os_type ~ '/systemd/*.service') | length > 0
+  notify: reload systemd daemon

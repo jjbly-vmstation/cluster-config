@@ -1,0 +1,12 @@
+[Unit]
+Description=Loki Log Aggregation System
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/loki-linux-amd64 -config.file=/etc/loki/loki-config.yaml
+Restart=always
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target

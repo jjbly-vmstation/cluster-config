@@ -1,0 +1,19 @@
+---
+# Networking Role Handlers
+
+- name: restart networking debian
+  service:
+    name: networking
+    state: restarted
+  when: ansible_os_family == 'Debian'
+
+- name: restart networkd
+  systemd:
+    name: systemd-networkd
+    state: restarted
+    enabled: yes
+
+- name: reload NetworkManager
+  systemd:
+    name: NetworkManager
+    state: reloaded

@@ -1,0 +1,45 @@
+---
+# Apply configuration management to enforce desired state
+# Usage: ansible-playbook -i inventory/hosts.ini playbooks/apply-config.yml
+
+- name: Apply Machine Configurations
+  hosts: all
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    config_base_path: "{{ playbook_dir }}/../hosts"
+  
+  pre_tasks:
+    - name: Display target information
+      debug:
+        msg: "Applying configuration to {{ inventory_hostname }} ({{ os_type }})"
+    
+    - name: Verify configuration directory exists
+      stat:
+        path: "{{ config_base_path }}/{{ os_type }}"
+      delegate_to: localhost
+      register: config_dir
+      
+    - name: Fail if configuration directory not found
+      fail:
+        msg: "Configuration directory not found: {{ config_base_path }}/{{ os_type }}"
+      when: not config_dir.stat.exists
+  
+  roles:
+    - role: ssh
+      tags: [ssh, security]
+    
+    - role: storage
+      tags: [storage, mounts]
+    
+    - role: networking
+      tags: [networking, network]
+    
+    - role: system
+      tags: [system, kernel]
+  
+  post_tasks:
+    - name: Configuration applied successfully
+      debug:
+        msg: "Configuration enforcement complete for {{ inventory_hostname }}"

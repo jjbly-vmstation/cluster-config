@@ -1,0 +1,6 @@
+[Unit]
+Description=VMStation idle check
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/vmstation_idle_check.sh

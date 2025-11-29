@@ -1,0 +1,2 @@
+# Debian 12 (Bookworm) host configurations
+# Place host-specific config files here after gathering them with scripts/gather-config.sh

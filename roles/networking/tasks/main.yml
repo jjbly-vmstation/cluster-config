@@ -1,0 +1,48 @@
+---
+# Network Configuration Management Role
+# Enforces network configuration for Debian and RHEL systems
+
+- name: Deploy Debian network configuration (ifupdown)
+  copy:
+    src: "{{ playbook_dir }}/../hosts/{{ os_type }}/interfaces"
+    dest: /etc/network/interfaces
+    owner: root
+    group: root
+    mode: '0644'
+    backup: yes
+  when: 
+    - os_type == 'debian12'
+    - lookup('fileglob', playbook_dir ~ '/../hosts/' ~ os_type ~ '/interfaces') | length > 0
+  notify: restart networking debian
+
+- name: Deploy systemd-networkd configuration files
+  synchronize:
+    src: "{{ playbook_dir }}/../hosts/{{ os_type }}/systemd-networkd/"
+    dest: /etc/systemd/network/
+    delete: no
+    rsync_opts:
+      - "--chmod=D755,F644"
+  when:
+    - os_type == 'debian12'
+    - lookup('fileglob', playbook_dir ~ '/../hosts/' ~ os_type ~ '/systemd-networkd/*.network') | length > 0
+  notify: restart networkd
+
+- name: Deploy NetworkManager connection files
+  synchronize:
+    src: "{{ playbook_dir }}/../hosts/{{ os_type }}/NetworkManager/"
+    dest: /etc/NetworkManager/system-connections/
+    delete: no
+    rsync_opts:
+      - "--chmod=D755,F600"
+  when:
+    - os_type == 'rhel10'
+    - lookup('fileglob', playbook_dir ~ '/../hosts/' ~ os_type ~ '/NetworkManager/*.nmconnection') | length > 0
+  notify: reload NetworkManager
+
+- name: Set correct permissions on NetworkManager connection files
+  file:
+    path: /etc/NetworkManager/system-connections/
+    state: directory
+    recurse: yes
+    mode: '0600'
+  when: os_type == 'rhel10'

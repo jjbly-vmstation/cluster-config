@@ -1,0 +1,11 @@
+[Unit]
+Description=Podman Metrics Service
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/podman system service --time=0 tcp:0.0.0.0:9882
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target

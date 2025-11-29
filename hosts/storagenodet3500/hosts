@@ -1,0 +1,23 @@
+127.0.0.1 localhost localhost.localdomain
+127.0.1.1   	storagenodet3500
+
+# The following lines are desirable for IPv6 capable hosts
+::1 ip6-localhost ip6-loopback localhost6 localhost6.localdomain
+ff02::1 ip6-allnodes
+ff02::2 ip6-allrouters
+# BEGIN ANSIBLE MANAGED BLOCK - VMStation Cluster
+# VMStation Kubernetes Cluster Nodes
+192.168.4.63 masternode
+192.168.4.61 storagenodet3500
+192.168.4.62 homelab
+# END ANSIBLE MANAGED BLOCK - VMStation Cluster
+# BEGIN VMStation Cluster
+192.168.4.63 masternode
+192.168.4.61 storagenodet3500
+192.168.4.62 homelab
+# END VMStation Cluster
+# Ansible inventory hosts BEGIN
+192.168.4.63 masternode.cluster.local masternode 
+192.168.4.62 homelab.cluster.local homelab 
+192.168.4.61 storagenodet3500.cluster.local storagenodet3500 
+# Ansible inventory hosts END

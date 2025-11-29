@@ -1,0 +1,16 @@
+# This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+source /etc/network/interfaces.d/*
+
+# auto turn on wired interface connected to switch
+auto enp2s0
+iface enp2s0 inet static
+	address 192.168.4.63
+	netmask 255.255.255.0
+	gateway 192.168.4.1
+	dns-nameservers 8.8.8.8 1.1.1.1

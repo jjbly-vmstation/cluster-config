@@ -1,0 +1,17 @@
+[connection]
+id=eno3
+uuid=05cc425d-cfca-4dbb-ae50-96833f915136
+type=ethernet
+autoconnect=false
+interface-name=eno3
+
+[ethernet]
+
+[ipv4]
+method=auto
+
+[ipv6]
+addr-gen-mode=eui64
+method=auto
+
+[proxy]

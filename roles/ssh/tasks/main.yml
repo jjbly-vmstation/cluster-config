@@ -1,0 +1,38 @@
+---
+# SSH Configuration Management Role
+# Enforces SSH daemon configuration from version control
+
+- name: Ensure SSH configuration directory exists
+  file:
+    path: /etc/ssh
+    state: directory
+    mode: '0755'
+
+- name: Deploy SSH daemon configuration
+  copy:
+    src: "{{ playbook_dir }}/../hosts/{{ os_type }}/sshd_config"
+    dest: /etc/ssh/sshd_config
+    owner: root
+    group: root
+    mode: '0600'
+    backup: yes
+    validate: '/usr/sbin/sshd -t -f %s'
+  notify: restart sshd
+  when: lookup('fileglob', playbook_dir ~ '/../hosts/' ~ os_type ~ '/sshd_config') | length > 0
+
+- name: Deploy group-level SSH hardening configuration
+  copy:
+    src: "{{ playbook_dir }}/../group/common/ssh-hardening.conf"
+    dest: /etc/ssh/sshd_config.d/99-hardening.conf
+    owner: root
+    group: root
+    mode: '0600'
+  notify: restart sshd
+  when: lookup('fileglob', playbook_dir ~ '/../group/common/ssh-hardening.conf') | length > 0
+  ignore_errors: yes
+
+- name: Ensure SSH service is enabled and started
+  service:
+    name: "{{ 'ssh' if ansible_os_family == 'Debian' else 'sshd' }}"
+    state: started
+    enabled: yes

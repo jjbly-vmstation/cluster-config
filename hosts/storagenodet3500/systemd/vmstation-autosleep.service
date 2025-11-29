@@ -1,0 +1,22 @@
+[Unit]
+Description=VMStation Auto-Sleep Monitor
+Documentation=https://github.com/JashandeepJustinBains/VMStation
+After=kubelet.service
+Requires=kubelet.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/vmstation-autosleep-monitor.sh
+Environment=KUBECONFIG=/etc/kubernetes/admin.conf
+# Configurable inactivity threshold (default: 7200s = 2 hours)
+Environment=VMSTATION_INACTIVITY_THRESHOLD=7200
+# Restart policy
+Restart=on-failure
+RestartSec=60
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=vmstation-autosleep
+
+[Install]
+WantedBy=multi-user.target
