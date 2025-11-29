@@ -7,7 +7,7 @@
 # Usage:
 #   Deploy Kerberos server (FreeIPA):
 #     ansible-playbook -i inventory/production/hosts.yml playbooks/kerberos-setup.yml --tags server
-#   
+#
 #   Enroll clients:
 #     ansible-playbook -i inventory/production/hosts.yml playbooks/kerberos-setup.yml --tags client
 #
@@ -43,7 +43,7 @@
       - sssd
       - sssd-krb5
       - sssd-tools
-    
+
     kerberos_client_packages_redhat:
       - krb5-workstation
       - krb5-libs
@@ -93,7 +93,7 @@
         name: "{{ kerberos_client_packages_debian }}"
         state: present
         update_cache: true
-      when: 
+      when:
         - ansible_os_family == 'Debian'
         - not is_kerberos_server
       tags: [client, install]
@@ -102,7 +102,7 @@
       ansible.builtin.dnf:
         name: "{{ kerberos_client_packages_redhat }}"
         state: present
-      when: 
+      when:
         - ansible_os_family == 'RedHat'
         - not is_kerberos_server
       tags: [client, install]
@@ -140,7 +140,7 @@
 
     # Server Configuration (FreeIPA)
     - name: Configure FreeIPA server
-      when: 
+      when:
         - is_kerberos_server
         - ansible_os_family == 'RedHat'
       tags: [server, freeipa]
@@ -159,7 +159,7 @@
           ansible.builtin.debug:
             msg: |
               FreeIPA packages installed. To complete server setup, run:
-              
+
               ipa-server-install --realm={{ kerberos_realm }} \
                                  --domain={{ kerberos_domain }} \
                                  --ds-password=<directory_password> \
@@ -167,7 +167,7 @@
                                  --setup-dns \
                                  --no-host-dns \
                                  --unattended
-              
+
               Note: This is a manual step requiring passwords.
           when: not ipa_installed.stat.exists
 
@@ -193,13 +193,13 @@
           ansible.builtin.debug:
             msg: |
               To enroll this host in FreeIPA, run:
-              
+
               ipa-client-install --server={{ kerberos_server }} \
                                  --domain={{ kerberos_domain }} \
                                  --realm={{ kerberos_realm }} \
                                  --principal=admin \
                                  --unattended
-              
+
               You will be prompted for the admin password.
           when: not ipa_client_installed.stat.exists
 
@@ -224,7 +224,7 @@
           Kerberos Configuration Complete for {{ inventory_hostname }}
           Role: {{ 'Server' if is_kerberos_server else 'Client' }}
           Realm: {{ kerberos_realm }}
-          
+
           To test authentication:
             kinit admin@{{ kerberos_realm }}
             klist

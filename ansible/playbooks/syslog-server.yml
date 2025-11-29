@@ -7,7 +7,7 @@
 # Usage:
 #   Deploy syslog server:
 #     ansible-playbook -i inventory/production/hosts.yml playbooks/syslog-server.yml --limit masternode
-#   
+#
 #   Deploy syslog clients:
 #     ansible-playbook -i inventory/production/hosts.yml playbooks/syslog-server.yml
 #
@@ -89,7 +89,7 @@
             owner: syslog
             group: adm
             mode: '0750'
-          ignore_errors: true  # May fail if syslog user doesn't exist
+          failed_when: false  # May fail if syslog user doesn't exist
 
         - name: Create syslog server configuration
           ansible.builtin.copy:
@@ -169,7 +169,7 @@
       tags: [service]
 
     - name: Configure firewall for syslog server
-      when: 
+      when:
         - is_syslog_server
         - ansible_os_family == 'RedHat'
       ansible.posix.firewalld:
@@ -177,7 +177,7 @@
         permanent: true
         state: enabled
       notify: Reload firewall
-      ignore_errors: true
+      failed_when: false
       tags: [firewall]
 
   handlers:
@@ -190,7 +190,7 @@
       ansible.builtin.service:
         name: firewalld
         state: reloaded
-      ignore_errors: true
+      failed_when: false
 
   post_tasks:
     - name: Verify rsyslog is running

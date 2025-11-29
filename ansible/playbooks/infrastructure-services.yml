@@ -127,9 +127,13 @@
     - name: Verify infrastructure services
       ansible.builtin.service_facts:
 
+    - name: Set chrony service name
+      ansible.builtin.set_fact:
+        chrony_status: "{{ ansible_facts.services['chrony.service'].state | default('not installed') if ansible_os_family == 'Debian' else ansible_facts.services['chronyd.service'].state | default('not installed') }}"
+
     - name: Display service status
       ansible.builtin.debug:
         msg: |
           Infrastructure Services Status on {{ inventory_hostname }}:
-          - Chrony: {{ ansible_facts.services['chrony.service'].state | default('not installed') if ansible_os_family == 'Debian' else ansible_facts.services['chronyd.service'].state | default('not installed') }}
+          - Chrony: {{ chrony_status }}
           - RSyslog: {{ ansible_facts.services['rsyslog.service'].state | default('not installed') }}

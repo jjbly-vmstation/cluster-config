@@ -1,13 +1,13 @@
 ---
 # Site Playbook - Main Entry Point for Cluster Configuration
-# 
+#
 # This playbook orchestrates all infrastructure configuration for the VMStation cluster.
 # It imports all component playbooks and ensures proper execution order.
 #
 # Usage:
 #   Full deployment:
 #     ansible-playbook -i inventory/production/hosts.yml playbooks/site.yml
-#   
+#
 #   Selective deployment:
 #     ansible-playbook -i inventory/production/hosts.yml playbooks/site.yml --tags ntp
 #     ansible-playbook -i inventory/production/hosts.yml playbooks/site.yml --tags security

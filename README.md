@@ -1,11 +1,8 @@
-# cluster-config
-# VMStation Machine Configuration  Tracks and enforces the baseline configuration for all VMStation machines.  - Per-host and group configs - Ansible playbooks and roles - Drift detection scripts  See the organization README for cross-repo context.
-=======
-# VMStation Machine Configuration
+# VMStation Cluster Configuration
 
 **Status**: ✓ Production Baseline Captured (2025-11-29)  
 **Hosts**: 3 (masternode, storagenodet3500, homelab)  
-**Coverage**: SSH, Network, Mounts, Systemd, Kernel Parameters
+**Coverage**: SSH, Network, Mounts, Systemd, Kernel Parameters, NTP, Syslog, Security Hardening
 
 This repository tracks and enforces the desired state of all critical machine configurations to prevent drift and ensure reliable, repeatable setups across reboots, upgrades, and scaling events.
 
@@ -15,52 +12,90 @@ This repository tracks and enforces the desired state of all critical machine co
 - Ensure stable, reproducible machine setups
 - Version control all critical system configurations
 - Enable automated validation and enforcement of desired state
+- Provide standardized infrastructure services (NTP, Syslog, Security)
 
 ## Repository Structure
 
 ```
-machine-config-repo/
-├── README.md                      # This file
-├── hosts/                         # Per-host configuration files
-│   ├── debian12/                  # Debian 12 (Bookworm) hosts
-│   │   ├── sshd_config           # SSH daemon configuration
-│   │   ├── fstab                  # Filesystem mount table
-│   │   ├── interfaces             # Network interfaces (ifupdown)
-│   │   └── systemd-networkd/      # systemd-networkd configs
-│   └── rhel10/                    # RHEL 10 hosts
-│       ├── sshd_config           # SSH daemon configuration
-│       ├── fstab                  # Filesystem mount table
-│       ├── ifcfg-eth0             # Legacy network scripts
-│       └── NetworkManager/        # NetworkManager connection files
-├── group/                         # Shared configs for groups of machines
-│   ├── common/                    # Configs applied to all machines
-│   │   ├── ssh-hardening.conf    # SSH security settings
-│   │   ├── ntp.conf               # Time synchronization
-│   │   └── sysctl.conf            # Kernel parameters
-│   └── storage/                   # Storage node specific configs
-│       └── mount-templates/       # Common mount patterns
-├── playbooks/                     # Ansible playbooks
-│   ├── apply-config.yml          # Apply configurations to hosts
-│   └── validate-config.yml        # Validate and check for drift
-├── roles/                         # Ansible roles
-│   ├── ssh/                       # SSH configuration management
-│   ├── storage/                   # Storage and mount management
-│   ├── networking/                # Network configuration
-│   └── system/                    # System-level settings
-├── inventory/                     # Ansible inventory
-│   └── hosts.ini                  # Host and group definitions
-└── scripts/                       # Helper scripts
-    ├── gather-config.sh          # Collect current configurations
-    └── check-drift.sh            # Detect configuration drift
+cluster-config/
+├── README.md                          # This file
+├── IMPROVEMENTS_AND_STANDARDS.md      # Best practices and standards
+├── ansible/                           # New Ansible directory structure
+│   ├── ansible.cfg                   # Ansible configuration
+│   ├── inventory/
+│   │   ├── production/               # Production environment
+│   │   │   ├── hosts.yml
+│   │   │   └── group_vars/all.yml
+│   │   └── staging/                  # Staging environment
+│   │       ├── hosts.yml
+│   │       └── group_vars/all.yml
+│   ├── playbooks/
+│   │   ├── site.yml                  # Main entry point
+│   │   ├── infrastructure-services.yml
+│   │   ├── ntp-sync.yml
+│   │   ├── syslog-server.yml
+│   │   ├── kerberos-setup.yml
+│   │   └── baseline-hardening.yml
+│   ├── roles/
+│   │   ├── common/                   # Base configuration
+│   │   ├── ntp/                      # Time synchronization
+│   │   ├── syslog/                   # Centralized logging
+│   │   ├── kerberos/                 # Kerberos/SSO
+│   │   └── security-hardening/       # Security baseline
+│   └── group_vars/all.yml
+├── hosts/                             # Per-host configuration files
+│   ├── masternode/                   # Control plane host
+│   ├── storagenodet3500/             # Storage worker
+│   └── homelab/                      # Compute worker
+├── group/                             # Shared configs for groups
+│   ├── common/                       # Configs applied to all machines
+│   └── storage/                      # Storage node specific
+├── manifests/                         # Kubernetes manifests
+│   ├── infrastructure/
+│   │   ├── namespace.yaml
+│   │   ├── ntp/
+│   │   ├── syslog/
+│   │   └── kerberos/
+│   └── network/
+├── templates/                         # Jinja2 templates
+│   ├── chrony.conf.j2
+│   ├── rsyslog.conf.j2
+│   └── ...
+├── docs/                              # Documentation
+│   ├── INFRASTRUCTURE_SERVICES.md
+│   ├── TIME_SYNC_SETUP.md
+│   ├── SYSLOG_CONFIGURATION.md
+│   └── KERBEROS_SETUP.md
+├── playbooks/                         # Legacy playbooks
+├── roles/                             # Legacy roles
+├── inventory/hosts.ini                # Legacy inventory
+└── scripts/                           # Helper scripts
 ```
 
 ## Quick Start
 
-### 1. Gather Current Configurations
+### Option 1: New Infrastructure Services (Recommended)
 
-Use the provided script to collect configurations from your running systems:
+Deploy the complete infrastructure baseline with the new playbooks:
 
 ```bash
+cd ansible
+
+# Deploy all infrastructure services
+ansible-playbook -i inventory/production/hosts.yml playbooks/site.yml
+
+# Or deploy individual services
+ansible-playbook -i inventory/production/hosts.yml playbooks/ntp-sync.yml
+ansible-playbook -i inventory/production/hosts.yml playbooks/syslog-server.yml
+ansible-playbook -i inventory/production/hosts.yml playbooks/baseline-hardening.yml
+```
+
+### Option 2: Legacy Configuration Management
+
+Use the original playbooks for per-host configuration:
+
+```bash
+# Gather configurations from running systems
 ./scripts/gather-config.sh <hostname> <os-type>
 ```
 
@@ -70,7 +105,7 @@ This will collect:
 - Network configuration (varies by OS)
 - System parameters (`/etc/sysctl.conf`)
 
-### 2. Review and Commit
+### Review and Commit
 
 Review the gathered configurations, remove any sensitive data, and commit to version control:
 
@@ -80,15 +115,20 @@ git commit -m "Add configuration for <hostname>"
 git push
 ```
 
-### 3. Apply Configuration
+### Apply Configuration
 
 Use Ansible to enforce the desired state:
 
 ```bash
+# Using new playbooks (recommended)
+cd ansible
+ansible-playbook -i inventory/production/hosts.yml playbooks/site.yml
+
+# Using legacy playbooks
 ansible-playbook -i inventory/hosts.ini playbooks/apply-config.yml
 ```
 
-### 4. Validate and Check Drift
+### Validate and Check Drift
 
 Regularly check for configuration drift:
 
@@ -100,6 +140,71 @@ Or use the standalone script:
 
 ```bash
 ./scripts/check-drift.sh
+```
+
+## Infrastructure Services
+
+The new `ansible/` directory provides standardized infrastructure services:
+
+### Time Synchronization (NTP/Chrony)
+
+Ensures consistent time across all cluster nodes:
+
+```bash
+cd ansible
+ansible-playbook -i inventory/production/hosts.yml playbooks/ntp-sync.yml
+```
+
+See [docs/TIME_SYNC_SETUP.md](docs/TIME_SYNC_SETUP.md) for detailed configuration.
+
+### Centralized Logging (Syslog)
+
+Aggregates logs from all nodes to a central server:
+
+```bash
+cd ansible
+ansible-playbook -i inventory/production/hosts.yml playbooks/syslog-server.yml
+```
+
+See [docs/SYSLOG_CONFIGURATION.md](docs/SYSLOG_CONFIGURATION.md) for detailed configuration.
+
+### Security Hardening
+
+Applies baseline security configurations:
+
+```bash
+cd ansible
+ansible-playbook -i inventory/production/hosts.yml playbooks/baseline-hardening.yml
+```
+
+Includes:
+- SSH hardening with modern algorithms
+- Kernel security parameters
+- Password policy enforcement
+- Audit logging
+
+### Kerberos (Optional)
+
+Single sign-on authentication:
+
+```bash
+cd ansible
+ansible-playbook -i inventory/production/hosts.yml playbooks/kerberos-setup.yml
+```
+
+See [docs/KERBEROS_SETUP.md](docs/KERBEROS_SETUP.md) for detailed configuration.
+
+### Using Tags for Selective Deployment
+
+```bash
+# Deploy only NTP
+ansible-playbook -i inventory/production/hosts.yml playbooks/site.yml --tags ntp
+
+# Deploy only security hardening
+ansible-playbook -i inventory/production/hosts.yml playbooks/site.yml --tags security
+
+# Skip Kerberos
+ansible-playbook -i inventory/production/hosts.yml playbooks/site.yml --skip-tags kerberos
 ```
 
 ## Configuration Examples
@@ -291,6 +396,20 @@ Set up scheduled jobs to:
 - Remove from history: `git filter-branch` or BFG Repo-Cleaner
 - Rotate compromised credentials immediately
 - Update access controls
+
+## Related Documentation
+
+### Infrastructure Services
+- [Infrastructure Services Overview](docs/INFRASTRUCTURE_SERVICES.md)
+- [Time Sync Setup](docs/TIME_SYNC_SETUP.md)
+- [Syslog Configuration](docs/SYSLOG_CONFIGURATION.md)
+- [Kerberos Setup](docs/KERBEROS_SETUP.md)
+
+### Standards and Improvements
+- [Improvements and Standards](IMPROVEMENTS_AND_STANDARDS.md)
+- [Quick Start Guide](QUICK_START.md)
+- [Baseline Report](BASELINE_REPORT.md)
+- [Deployment Summary](DEPLOYMENT_SUMMARY.md)
 
 ## References
 

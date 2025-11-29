@@ -135,7 +135,7 @@
           ========================================
           Tracking Status:
           {{ chrony_tracking.stdout }}
-          
+
           Sources:
           {{ chrony_sources.stdout }}
           ========================================

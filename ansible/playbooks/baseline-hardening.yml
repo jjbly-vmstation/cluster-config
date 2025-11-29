@@ -7,7 +7,7 @@
 # Usage:
 #   Full hardening:
 #     ansible-playbook -i inventory/production/hosts.yml playbooks/baseline-hardening.yml
-#   
+#
 #   Selective hardening:
 #     ansible-playbook -i inventory/production/hosts.yml playbooks/baseline-hardening.yml --tags ssh
 #     ansible-playbook -i inventory/production/hosts.yml playbooks/baseline-hardening.yml --tags firewall
@@ -30,7 +30,7 @@
     ssh_permit_root_login: "{{ 'no' if security_disable_root_login | default(false) else 'prohibit-password' }}"
     ssh_password_auth: "{{ 'no' if not (security_password_auth | default(false)) else 'yes' }}"
     ssh_permit_empty_passwords: "{{ 'yes' if security_permit_empty_passwords | default(false) else 'no' }}"
-    
+
     # Firewall defaults
     allowed_ssh_networks:
       - 192.168.4.0/24
@@ -217,7 +217,7 @@
             - { path: /etc/group, mode: '0644' }
             - { path: /etc/gshadow, mode: '0600' }
             - { path: /etc/ssh/sshd_config, mode: '0600' }
-          ignore_errors: true
+          failed_when: false
 
     # Audit Logging
     - name: Configure audit logging
@@ -269,7 +269,7 @@
           ========================================
           SSH Config Test: {{ 'PASSED' if ssh_test.rc == 0 else 'FAILED' }}
           Backup Location: {{ backup_result.stdout }}
-          
+
           Applied Controls:
           - SSH hardening with modern algorithms
           - Kernel security parameters
