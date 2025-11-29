@@ -1,0 +1,47 @@
+# {{ ansible_managed | default('Managed by Ansible') }}
+# Chrony configuration file
+# Template: chrony.conf.j2
+
+# NTP servers
+{% for server in ntp_servers | default(['0.pool.ntp.org', '1.pool.ntp.org', '2.pool.ntp.org', '3.pool.ntp.org']) %}
+server {{ server }}{% if chrony_iburst | default(true) %} iburst{% endif %}
+
+{% endfor %}
+
+# Drift file - records the rate at which the system clock gains/loses time
+driftfile {{ chrony_drift_file | default('/var/lib/chrony/drift') }}
+
+# Enable kernel synchronization of the real-time clock (RTC)
+rtcsync
+
+# Allow large time correction on startup
+# Step the clock if the adjustment is larger than 1 second, but only in first 3 updates
+makestep {{ chrony_makestep_threshold | default(1.0) }} {{ chrony_makestep_limit | default(3) }}
+
+{% if chrony_is_server | default(false) %}
+# Allow NTP client access from specified networks
+{% for network in chrony_allow_networks | default(['127.0.0.1']) %}
+allow {{ network }}
+{% endfor %}
+
+# Serve time even when not synchronized to external sources
+local stratum 10
+{% endif %}
+
+# Log directory
+logdir {{ chrony_log_dir | default('/var/log/chrony') }}
+
+# Specify file containing keys for NTP authentication
+{% if chrony_key_file is defined %}
+keyfile {{ chrony_key_file }}
+{% endif %}
+
+{% if chrony_hwtimestamp_enable | default(false) %}
+# Hardware timestamping for better accuracy
+hwtimestamp *
+{% endif %}
+
+# Leap seconds configuration
+{% if chrony_leapsectz is defined %}
+leapsectz {{ chrony_leapsectz }}
+{% endif %}

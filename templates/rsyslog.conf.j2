@@ -1,0 +1,92 @@
+# {{ ansible_managed | default('Managed by Ansible') }}
+# rsyslog configuration file
+# Template: rsyslog.conf.j2
+
+#################
+#### MODULES ####
+#################
+
+# Provides support for local system logging
+module(load="imuxsock"
+       SysSock.Use="off"
+       SysSock.UsePIDFromSystem="on"
+       SysSock.RateLimit.Interval="{{ syslog_rate_limit_interval | default(5) }}"
+       SysSock.RateLimit.Burst="{{ syslog_rate_limit_burst | default(200) }}")
+
+# Provides kernel logging support
+module(load="imklog")
+
+{% if syslog_is_server | default(false) %}
+# UDP syslog reception
+module(load="imudp")
+input(type="imudp" port="{{ syslog_port | default(514) }}")
+
+# TCP syslog reception
+module(load="imtcp")
+input(type="imtcp" port="{{ syslog_port | default(514) }}")
+
+{% if syslog_tls_enabled | default(false) %}
+# TLS configuration for encrypted syslog
+global(
+    DefaultNetstreamDriver="gtls"
+    DefaultNetstreamDriverCAFile="{{ syslog_tls_ca | default('/etc/ssl/certs/ca-certificates.crt') }}"
+    DefaultNetstreamDriverCertFile="{{ syslog_tls_cert | default('/etc/ssl/certs/rsyslog.pem') }}"
+    DefaultNetstreamDriverKeyFile="{{ syslog_tls_key | default('/etc/ssl/private/rsyslog.key') }}"
+)
+
+module(load="imtcp" StreamDriver.Name="gtls" 
+       StreamDriver.Mode="1" StreamDriver.AuthMode="x509/name")
+{% endif %}
+{% endif %}
+
+###########################
+#### GLOBAL DIRECTIVES ####
+###########################
+
+# Use traditional timestamp format
+$ActionFileDefaultTemplate RSYSLOG_TraditionalFileFormat
+
+# Filter duplicated messages
+$RepeatedMsgReduction on
+
+# Set the default permissions for log files
+$FileOwner {{ syslog_user | default('syslog') }}
+$FileGroup {{ syslog_group | default('adm') }}
+$FileCreateMode 0640
+$DirCreateMode 0755
+$Umask 0022
+
+# Work directory
+$WorkDirectory {{ syslog_work_directory | default('/var/spool/rsyslog') }}
+
+# Include configuration files from /etc/rsyslog.d/
+$IncludeConfig /etc/rsyslog.d/*.conf
+
+###############
+#### RULES ####
+###############
+
+# Log all kernel messages to the console
+# Logging much else clutters up the screen
+#kern.*                          /dev/console
+
+# Log anything (except mail) of level info or higher
+*.info;mail.none;authpriv.none;cron.none      /var/log/messages
+
+# The authpriv file has restricted access
+authpriv.*                                     /var/log/secure
+
+# Log all the mail messages in one place
+mail.*                                         -/var/log/maillog
+
+# Log cron stuff
+cron.*                                         /var/log/cron
+
+# Everybody gets emergency messages
+*.emerg                                        :omusrmsg:*
+
+# Save news errors of level crit and higher in a special file
+uucp,news.crit                                 /var/log/spooler
+
+# Save boot messages also to boot.log
+local7.*                                       /var/log/boot.log

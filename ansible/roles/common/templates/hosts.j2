@@ -1,0 +1,15 @@
+# {{ ansible_managed | default('Managed by Ansible') }}
+# /etc/hosts - Static hostname resolution
+
+127.0.0.1   localhost
+127.0.1.1   {{ inventory_hostname }}
+::1         localhost ip6-localhost ip6-loopback
+ff02::1     ip6-allnodes
+ff02::2     ip6-allrouters
+
+# Cluster hosts
+{% for host in groups['all'] | default([]) %}
+{% if hostvars[host]['ansible_host'] is defined %}
+{{ hostvars[host]['ansible_host'] }}    {{ host }}
+{% endif %}
+{% endfor %}

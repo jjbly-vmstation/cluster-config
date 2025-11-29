@@ -1,7 +1,18 @@
-# Machine Configuration Repository .gitignore
+# VMStation Cluster Configuration Repository .gitignore
 
 # Ansible retry files
 *.retry
+
+# Ansible fact cache
+ansible/facts/
+/tmp/ansible_facts/
+
+# Ansible collections (install locally)
+ansible/collections/
+
+# Molecule test artifacts
+.molecule/
+.cache/
 
 # Backup files created during config application
 *.backup

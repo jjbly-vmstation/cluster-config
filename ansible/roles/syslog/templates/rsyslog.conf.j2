@@ -1,0 +1,81 @@
+# {{ ansible_managed | default('Managed by Ansible') }}
+# rsyslog configuration file
+# Generated for {{ inventory_hostname }}
+
+#################
+#### MODULES ####
+#################
+
+module(load="imuxsock"
+       SysSock.Use="off"
+       SysSock.UsePIDFromSystem="{{ syslog_imuxsock_use_pid | default('on') }}"
+       SysSock.RateLimit.Interval="{{ syslog_imuxsock_rate_limit_interval | default(5) }}"
+       SysSock.RateLimit.Burst="{{ syslog_imuxsock_rate_limit_burst | default(200) }}")
+module(load="imklog")
+
+{% if syslog_is_server | default(false) %}
+# UDP syslog reception
+module(load="imudp")
+input(type="imudp" port="{{ syslog_port | default(514) }}")
+
+# TCP syslog reception
+module(load="imtcp")
+input(type="imtcp" port="{{ syslog_port | default(514) }}")
+
+{% if syslog_tls_enabled | default(false) %}
+# TLS configuration
+module(load="imtcp" StreamDriver.Name="gtls" 
+       StreamDriver.Mode="1" StreamDriver.AuthMode="x509/name")
+{% endif %}
+{% endif %}
+
+###########################
+#### GLOBAL DIRECTIVES ####
+###########################
+
+# Use traditional timestamp format
+$ActionFileDefaultTemplate RSYSLOG_TraditionalFileFormat
+
+# Filter duplicated messages
+$RepeatedMsgReduction on
+
+# Set the default permissions for log files
+$FileOwner syslog
+$FileGroup adm
+$FileCreateMode 0640
+$DirCreateMode 0755
+$Umask 0022
+
+# Work directory
+$WorkDirectory {{ syslog_work_directory | default('/var/spool/rsyslog') }}
+
+# Include configuration files from /etc/rsyslog.d/
+$IncludeConfig /etc/rsyslog.d/*.conf
+
+###############
+#### RULES ####
+###############
+
+# Log auth messages to separate file
+auth,authpriv.*                 /var/log/auth.log
+
+# Log all kernel messages
+kern.*                          -/var/log/kern.log
+
+# Log daemon messages
+daemon.*                        -/var/log/daemon.log
+
+# Log mail system messages
+mail.*                          -/var/log/mail.log
+
+# Log user-level messages
+user.*                          -/var/log/user.log
+
+# Log syslog itself
+syslog.*                        /var/log/syslog
+
+# Emergency messages to all logged in users
+*.emerg                         :omusrmsg:*
+
+# Standard messages log
+*.*;auth,authpriv.none          -/var/log/messages

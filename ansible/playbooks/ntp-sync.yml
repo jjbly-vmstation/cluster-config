@@ -1,0 +1,158 @@
+---
+# NTP Time Synchronization Playbook
+#
+# Configures NTP/Chrony time synchronization across all cluster nodes.
+# Ensures consistent time across the cluster for:
+# - Kubernetes certificate validation
+# - Log correlation
+# - Distributed system coordination
+#
+# Usage:
+#   ansible-playbook -i inventory/production/hosts.yml playbooks/ntp-sync.yml
+#
+# Required Variables:
+#   - ntp_servers: List of NTP servers to use
+#   - chrony_enabled: Whether to use chrony (default: true)
+#
+# Troubleshooting:
+#   - Check sync status: chronyc tracking
+#   - View sources: chronyc sources -v
+#   - Force sync: chronyc makestep
+#
+# Author: VMStation Team
+# License: MIT
+
+- name: Configure NTP Time Synchronization
+  hosts: all
+  become: true
+  gather_facts: true
+
+  vars:
+    chrony_package: "{{ 'chrony' }}"
+    chrony_service: "{{ 'chrony' if ansible_os_family == 'Debian' else 'chronyd' }}"
+    chrony_config_path: "{{ '/etc/chrony/chrony.conf' if ansible_os_family == 'Debian' else '/etc/chrony.conf' }}"
+
+    # Default NTP servers if not defined
+    default_ntp_servers:
+      - 0.pool.ntp.org
+      - 1.pool.ntp.org
+      - 2.pool.ntp.org
+      - 3.pool.ntp.org
+
+  pre_tasks:
+    - name: Display NTP configuration info
+      ansible.builtin.debug:
+        msg: |
+          Configuring NTP on {{ inventory_hostname }}
+          NTP Servers: {{ ntp_servers | default(default_ntp_servers) }}
+          OS Family: {{ ansible_os_family }}
+
+    - name: Validate NTP servers list
+      ansible.builtin.assert:
+        that:
+          - ntp_servers | default(default_ntp_servers) | length > 0
+        fail_msg: "At least one NTP server must be configured"
+        success_msg: "NTP server list validated"
+
+  tasks:
+    - name: Install chrony package
+      ansible.builtin.package:
+        name: "{{ chrony_package }}"
+        state: present
+      tags: [install, packages]
+
+    - name: Check for existing chrony configuration
+      ansible.builtin.stat:
+        path: "{{ chrony_config_path }}"
+      register: chrony_config_stat
+
+    - name: Backup existing chrony configuration
+      ansible.builtin.copy:
+        src: "{{ chrony_config_path }}"
+        dest: "{{ chrony_config_path }}.backup-{{ ansible_date_time.epoch }}"
+        remote_src: true
+        mode: '0644'
+      when: chrony_config_stat.stat.exists
+      tags: [backup]
+
+    - name: Deploy chrony configuration from template
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../../templates/chrony.conf.j2"
+        dest: "{{ chrony_config_path }}"
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart chrony service
+      tags: [configure]
+
+    - name: Ensure chrony service is enabled
+      ansible.builtin.service:
+        name: "{{ chrony_service }}"
+        enabled: true
+      tags: [service]
+
+    - name: Start chrony service
+      ansible.builtin.service:
+        name: "{{ chrony_service }}"
+        state: started
+      tags: [service]
+
+    - name: Wait for chrony to synchronize
+      ansible.builtin.command:
+        cmd: chronyc waitsync 3 0.5
+      register: chrony_sync
+      changed_when: false
+      failed_when: false
+      timeout: 60
+      tags: [verify]
+
+    - name: Check chrony tracking status
+      ansible.builtin.command:
+        cmd: chronyc tracking
+      register: chrony_tracking
+      changed_when: false
+      tags: [verify]
+
+    - name: Check chrony sources
+      ansible.builtin.command:
+        cmd: chronyc sources -v
+      register: chrony_sources
+      changed_when: false
+      tags: [verify]
+
+  handlers:
+    - name: Restart chrony service
+      ansible.builtin.service:
+        name: "{{ chrony_service }}"
+        state: restarted
+
+  post_tasks:
+    - name: Display chrony status
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          NTP Configuration Complete for {{ inventory_hostname }}
+          ========================================
+          Tracking Status:
+          {{ chrony_tracking.stdout }}
+          
+          Sources:
+          {{ chrony_sources.stdout }}
+          ========================================
+
+    - name: Verify time synchronization
+      ansible.builtin.shell: |
+        set -o pipefail
+        timedatectl status | grep -E "(NTP|synchronized)"
+      args:
+        executable: /bin/bash
+      register: time_status
+      changed_when: false
+      failed_when: false
+      tags: [verify]
+
+    - name: Display time synchronization status
+      ansible.builtin.debug:
+        msg: "{{ time_status.stdout_lines }}"
+      when: time_status.stdout_lines | length > 0
+      tags: [verify]

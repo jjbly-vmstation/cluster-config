@@ -1,0 +1,46 @@
+---
+# NTP Role - Default Variables
+
+# NTP Servers (using pool.ntp.org by default)
+ntp_servers:
+  - 0.pool.ntp.org
+  - 1.pool.ntp.org
+  - 2.pool.ntp.org
+  - 3.pool.ntp.org
+
+# Chrony settings
+chrony_config_path: "{{ '/etc/chrony/chrony.conf' if ansible_os_family == 'Debian' else '/etc/chrony.conf' }}"
+chrony_service_name: "{{ 'chrony' if ansible_os_family == 'Debian' else 'chronyd' }}"
+chrony_drift_file: /var/lib/chrony/drift
+chrony_key_file: /etc/chrony.keys
+chrony_log_dir: /var/log/chrony
+
+# Server mode settings (for local NTP server)
+chrony_is_server: false
+chrony_allow_networks:
+  - 127.0.0.1
+
+# Iburst for faster initial synchronization
+chrony_iburst: true
+
+# Enable hardware timestamping if available
+chrony_hwtimestamp_enable: false
+
+# Wait for sync during deployment
+chrony_wait_sync: true
+
+# Display status after configuration
+chrony_show_status: true
+
+# Makestep settings - allow larger time jumps on startup
+# makestep <threshold> <limit>
+# This allows time to be stepped if adjustment is larger than threshold,
+# but only for first <limit> updates after startup
+chrony_makestep_threshold: 1.0
+chrony_makestep_limit: 3
+
+# RTC (Real Time Clock) settings
+chrony_rtcsync: true
+
+# Leap second handling
+chrony_leapsectz: "right/UTC"

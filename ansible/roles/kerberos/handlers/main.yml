@@ -1,0 +1,7 @@
+---
+# Kerberos Role - Handlers
+
+- name: Restart SSSD
+  ansible.builtin.service:
+    name: sssd
+    state: restarted

@@ -1,0 +1,66 @@
+---
+# NTP Role - Main Tasks
+#
+# Configures NTP/Chrony time synchronization
+
+- name: Install chrony package
+  ansible.builtin.package:
+    name: chrony
+    state: present
+  tags: [install]
+
+- name: Backup existing chrony configuration
+  ansible.builtin.copy:
+    src: "{{ chrony_config_path }}"
+    dest: "{{ chrony_config_path }}.backup"
+    remote_src: true
+    mode: '0644'
+  changed_when: false
+  failed_when: false
+  tags: [backup]
+
+- name: Deploy chrony configuration
+  ansible.builtin.template:
+    src: chrony.conf.j2
+    dest: "{{ chrony_config_path }}"
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+  notify: Restart chrony
+  tags: [configure]
+
+- name: Ensure chrony service is enabled
+  ansible.builtin.service:
+    name: "{{ chrony_service_name }}"
+    enabled: true
+  tags: [service]
+
+- name: Start chrony service
+  ansible.builtin.service:
+    name: "{{ chrony_service_name }}"
+    state: started
+  tags: [service]
+
+- name: Wait for initial synchronization
+  ansible.builtin.command:
+    cmd: chronyc waitsync 3 0.5
+  register: sync_result
+  changed_when: false
+  failed_when: false
+  timeout: 60
+  when: chrony_wait_sync | default(true)
+  tags: [verify]
+
+- name: Get chrony tracking status
+  ansible.builtin.command:
+    cmd: chronyc tracking
+  register: chrony_tracking
+  changed_when: false
+  tags: [verify]
+
+- name: Display synchronization status
+  ansible.builtin.debug:
+    msg: "{{ chrony_tracking.stdout_lines }}"
+  when: chrony_show_status | default(true)
+  tags: [verify]

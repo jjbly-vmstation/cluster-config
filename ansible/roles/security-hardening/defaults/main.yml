@@ -1,0 +1,55 @@
+---
+# Security Hardening Role - Default Variables
+
+# SSH Hardening
+ssh_port: 22
+ssh_permit_root_login: "prohibit-password"  # Options: yes, no, prohibit-password, forced-commands-only
+ssh_password_auth: "no"
+ssh_permit_empty_passwords: "no"
+ssh_x11_forwarding: false
+ssh_max_auth_tries: 3
+ssh_max_sessions: 10
+ssh_client_alive_interval: 300
+ssh_client_alive_count_max: 2
+
+# SSH Crypto settings
+ssh_kex_algorithms:
+  - curve25519-sha256
+  - curve25519-sha256@libssh.org
+  - diffie-hellman-group-exchange-sha256
+
+ssh_ciphers:
+  - chacha20-poly1305@openssh.com
+  - aes256-gcm@openssh.com
+  - aes128-gcm@openssh.com
+  - aes256-ctr
+  - aes192-ctr
+  - aes128-ctr
+
+ssh_macs:
+  - hmac-sha2-512-etm@openssh.com
+  - hmac-sha2-256-etm@openssh.com
+  - hmac-sha2-512
+  - hmac-sha2-256
+
+# Password Policy
+password_min_length: 12
+password_max_age: 90
+password_min_age: 7
+password_warn_age: 14
+
+# Secure file permissions
+secure_files:
+  - { path: '/etc/passwd', mode: '0644' }
+  - { path: '/etc/shadow', mode: '0600' }
+  - { path: '/etc/group', mode: '0644' }
+  - { path: '/etc/gshadow', mode: '0600' }
+  - { path: '/etc/ssh/sshd_config', mode: '0600' }
+
+# Firewall settings
+firewall_enabled: false
+firewall_allowed_ports:
+  - "22/tcp"
+
+# Organization name for banner
+organization_name: VMStation

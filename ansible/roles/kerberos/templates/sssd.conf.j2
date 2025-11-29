@@ -1,0 +1,36 @@
+# {{ ansible_managed | default('Managed by Ansible') }}
+# SSSD Configuration for Kerberos
+# Generated for {{ inventory_hostname }}
+
+[sssd]
+services = nss, pam, ssh
+config_file_version = 2
+domains = {{ kerberos_domain | lower }}
+
+[domain/{{ kerberos_domain | lower }}]
+id_provider = files
+auth_provider = krb5
+access_provider = simple
+chpass_provider = krb5
+
+# Kerberos settings
+krb5_realm = {{ kerberos_realm | upper }}
+{% for kdc in kerberos_kdc_servers | default([]) %}
+krb5_server = {{ kdc }}
+{% endfor %}
+krb5_kpasswd = {{ kerberos_admin_server | default(kerberos_kdc_servers[0] | default('localhost')) }}
+krb5_auth_timeout = 15
+
+# Cache credentials for offline login
+cache_credentials = {{ 'True' if sssd_cache_credentials | default(true) else 'False' }}
+
+# UID range
+min_id = {{ sssd_min_id | default(1000) }}
+
+[nss]
+homedir_substring = /home
+
+[pam]
+offline_credentials_expiration = 7
+
+[ssh]

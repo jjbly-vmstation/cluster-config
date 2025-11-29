@@ -1,0 +1,44 @@
+---
+# Syslog Role - Default Variables
+
+# Syslog server settings
+syslog_server: masternode
+syslog_port: 514
+syslog_protocol: udp  # udp or tcp
+
+# Server mode (set to true for the syslog server host)
+syslog_is_server: false
+
+# Log retention
+syslog_retention_days: 90
+
+# Remote log directory (on server)
+syslog_remote_log_dir: /var/log/remote
+
+# User and group for syslog
+syslog_user: syslog
+syslog_group: adm
+
+# Enable TLS (optional)
+syslog_tls_enabled: false
+syslog_tls_cert: /etc/ssl/certs/rsyslog.pem
+syslog_tls_key: /etc/ssl/private/rsyslog.key
+syslog_tls_ca: /etc/ssl/certs/ca-certificates.crt
+
+# Rate limiting
+syslog_rate_limit_interval: 5
+syslog_rate_limit_burst: 500
+
+# Imuxsock options
+syslog_imuxsock_use_pid: "on"
+syslog_imuxsock_rate_limit_interval: 5
+syslog_imuxsock_rate_limit_burst: 200
+
+# Work directory
+syslog_work_directory: /var/spool/rsyslog
+
+# Default log rotation settings
+logrotate_count: 14
+logrotate_frequency: daily
+logrotate_compress: true
+logrotate_delaycompress: true

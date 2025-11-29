@@ -1,0 +1,27 @@
+---
+# Syslog ConfigMap
+# Contains rsyslog configuration for centralized logging
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rsyslog-config
+  namespace: infrastructure
+  labels:
+    app.kubernetes.io/name: rsyslog
+    app.kubernetes.io/component: syslog
+data:
+  rsyslog.conf: |
+    # Rsyslog configuration for Kubernetes syslog forwarder
+    
+    module(load="imuxsock")
+    module(load="imklog")
+    
+    # Forward all logs to central syslog server
+    *.* @masternode:514
+    
+    # Keep local copies
+    *.info;mail.none;authpriv.none;cron.none /var/log/messages
+    authpriv.* /var/log/secure
+    mail.* -/var/log/maillog
+    cron.* /var/log/cron
+    *.emerg :omusrmsg:*

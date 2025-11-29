@@ -1,0 +1,50 @@
+---
+# Global Group Variables
+# Applied to all hosts across all environments
+
+# Organization Settings
+organization_name: jjbly-vmstation
+contact_email: admin@vmstation.local
+
+# Default Time Synchronization
+default_timezone: UTC
+ntp_drift_threshold_ms: 1000
+
+# Default Syslog Settings
+syslog_facility: local0
+syslog_severity: info
+
+# Security Defaults
+password_min_length: 12
+password_complexity_required: true
+session_timeout: 3600
+max_login_attempts: 5
+lockout_duration: 900
+
+# Common Paths
+config_base_path: /etc
+var_base_path: /var
+
+# Ansible Settings
+ansible_managed: "Managed by Ansible - Do not edit directly"
+
+# YAML Anchors for reuse
+# Usage: ntp_servers: *default_ntp_servers
+x-defaults:
+  default_ntp_servers: &default_ntp_servers
+    - 0.pool.ntp.org
+    - 1.pool.ntp.org
+    - 2.pool.ntp.org
+    - 3.pool.ntp.org
+
+  default_dns_servers: &default_dns_servers
+    - 8.8.8.8
+    - 8.8.4.4
+    - 1.1.1.1
+
+# Default feature flags
+features:
+  ntp: true
+  syslog: true
+  kerberos: false
+  security_hardening: true
