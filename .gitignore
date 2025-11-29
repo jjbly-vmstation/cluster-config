@@ -9,6 +9,7 @@ ansible/facts/
 
 # Ansible collections (install locally)
 ansible/collections/
+.ansible/
 
 # Molecule test artifacts
 .molecule/

@@ -19,7 +19,7 @@
         owner: root
         group: root
         mode: '0600'
-        validate: '/usr/sbin/sshd -t -f %s || true'
+        validate: '/usr/sbin/sshd -t -f %s'
       notify: Restart SSH
 
     - name: Create login banner

@@ -7,7 +7,6 @@
 server {{ server }}{% if chrony_iburst | default(true) %} iburst{% endif %}
 
 {% endfor %}
-
 # Drift file - records the rate at which the system clock gains/loses time
 driftfile {{ chrony_drift_file | default('/var/lib/chrony/drift') }}
 

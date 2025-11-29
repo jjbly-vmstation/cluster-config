@@ -42,7 +42,8 @@
         owner: "{{ syslog_user }}"
         group: "{{ syslog_group }}"
         mode: '0750'
-      ignore_errors: true
+      # May fail if syslog user doesn't exist on first run - will be created by rsyslog install
+      failed_when: false
 
     - name: Deploy syslog server configuration
       ansible.builtin.template:

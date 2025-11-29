@@ -18,11 +18,12 @@
     backup: true
   tags: [hosts]
 
-- name: Set timezone
-  community.general.timezone:
-    name: "{{ timezone | default('UTC') }}"
+- name: Set timezone using timedatectl
+  ansible.builtin.command:
+    cmd: timedatectl set-timezone {{ timezone | default('UTC') }}
+  changed_when: false
+  failed_when: false
   tags: [timezone]
-  ignore_errors: true
 
 - name: Ensure common packages are installed (Debian)
   ansible.builtin.apt:
