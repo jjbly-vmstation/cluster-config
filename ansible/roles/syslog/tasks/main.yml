@@ -1,0 +1,90 @@
+---
+# Syslog Role - Main Tasks
+#
+# Configures rsyslog for centralized logging
+
+- name: Install rsyslog package
+  ansible.builtin.package:
+    name: rsyslog
+    state: present
+  tags: [install]
+
+- name: Create rsyslog.d directory
+  ansible.builtin.file:
+    path: /etc/rsyslog.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  tags: [configure]
+
+- name: Deploy rsyslog main configuration
+  ansible.builtin.template:
+    src: rsyslog.conf.j2
+    dest: /etc/rsyslog.conf
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+    validate: 'rsyslogd -N1 -f %s'
+  notify: Restart rsyslog
+  tags: [configure]
+
+# Server-specific configuration
+- name: Configure syslog server
+  when: syslog_is_server | default(false)
+  tags: [server]
+  block:
+    - name: Create remote logs directory
+      ansible.builtin.file:
+        path: "{{ syslog_remote_log_dir }}"
+        state: directory
+        owner: "{{ syslog_user }}"
+        group: "{{ syslog_group }}"
+        mode: '0750'
+      # May fail if syslog user doesn't exist on first run - will be created by rsyslog install
+      failed_when: false
+
+    - name: Deploy syslog server configuration
+      ansible.builtin.template:
+        src: server.conf.j2
+        dest: /etc/rsyslog.d/10-server.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart rsyslog
+
+    - name: Configure logrotate for remote logs
+      ansible.builtin.template:
+        src: logrotate.j2
+        dest: /etc/logrotate.d/rsyslog-remote
+        owner: root
+        group: root
+        mode: '0644'
+
+# Client-specific configuration
+- name: Configure syslog client
+  when: not syslog_is_server | default(false)
+  tags: [client]
+  block:
+    - name: Deploy syslog forwarding configuration
+      ansible.builtin.template:
+        src: forward.conf.j2
+        dest: /etc/rsyslog.d/10-forward.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart rsyslog
+
+- name: Ensure rsyslog service is enabled and started
+  ansible.builtin.service:
+    name: rsyslog
+    state: started
+    enabled: true
+  tags: [service]
+
+- name: Send test log message
+  ansible.builtin.command:
+    cmd: logger -t "ansible-syslog" "Syslog configuration applied on {{ inventory_hostname }}"
+  changed_when: false
+  tags: [test]

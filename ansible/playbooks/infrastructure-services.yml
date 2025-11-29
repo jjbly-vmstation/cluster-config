@@ -1,0 +1,139 @@
+---
+# Infrastructure Services Deployment Playbook
+#
+# Deploys and configures core infrastructure services:
+# - NTP/Chrony time synchronization
+# - Centralized syslog collection
+# - Common system configurations
+#
+# Usage:
+#   ansible-playbook -i inventory/production/hosts.yml playbooks/infrastructure-services.yml
+#   ansible-playbook -i inventory/production/hosts.yml playbooks/infrastructure-services.yml --tags ntp
+#
+# Author: VMStation Team
+# License: MIT
+
+- name: Deploy Infrastructure Services
+  hosts: all
+  become: true
+  gather_facts: true
+
+  vars:
+    infrastructure_services:
+      - name: chrony
+        enabled: "{{ chrony_enabled | default(true) }}"
+        description: "Time synchronization"
+      - name: rsyslog
+        enabled: "{{ syslog_enabled | default(true) }}"
+        description: "System logging"
+
+  pre_tasks:
+    - name: Display infrastructure services deployment
+      ansible.builtin.debug:
+        msg: |
+          Deploying Infrastructure Services to {{ inventory_hostname }}
+          Environment: {{ environment_name | default('production') }}
+          Services: {{ infrastructure_services | selectattr('enabled', 'equalto', true) | map(attribute='name') | list }}
+
+    - name: Update package cache (Debian)
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+      when: ansible_os_family == 'Debian'
+      tags: [packages]
+
+    - name: Update package cache (RedHat)
+      ansible.builtin.dnf:
+        update_cache: true
+      when: ansible_os_family == 'RedHat'
+      tags: [packages]
+
+  tasks:
+    # NTP/Chrony Configuration Block
+    - name: Configure time synchronization
+      when: chrony_enabled | default(true)
+      tags: [ntp, chrony, time]
+      block:
+        - name: Install chrony package
+          ansible.builtin.package:
+            name: chrony
+            state: present
+
+        - name: Deploy chrony configuration
+          ansible.builtin.template:
+            src: "{{ playbook_dir }}/../../templates/chrony.conf.j2"
+            dest: "{{ '/etc/chrony/chrony.conf' if ansible_os_family == 'Debian' else '/etc/chrony.conf' }}"
+            owner: root
+            group: root
+            mode: '0644'
+            backup: true
+          notify: Restart chrony
+
+        - name: Ensure chrony service is enabled and running
+          ansible.builtin.service:
+            name: "{{ 'chrony' if ansible_os_family == 'Debian' else 'chronyd' }}"
+            state: started
+            enabled: true
+
+      rescue:
+        - name: Log chrony configuration failure
+          ansible.builtin.debug:
+            msg: "Failed to configure chrony on {{ inventory_hostname }}"
+
+    # Syslog Configuration Block
+    - name: Configure centralized logging
+      when: syslog_enabled | default(true)
+      tags: [syslog, logging]
+      block:
+        - name: Install rsyslog package
+          ansible.builtin.package:
+            name: rsyslog
+            state: present
+
+        - name: Deploy rsyslog configuration
+          ansible.builtin.template:
+            src: "{{ playbook_dir }}/../../templates/rsyslog.conf.j2"
+            dest: /etc/rsyslog.conf
+            owner: root
+            group: root
+            mode: '0644'
+            backup: true
+            validate: 'rsyslogd -N1 -f %s'
+          notify: Restart rsyslog
+
+        - name: Ensure rsyslog service is enabled and running
+          ansible.builtin.service:
+            name: rsyslog
+            state: started
+            enabled: true
+
+      rescue:
+        - name: Log rsyslog configuration failure
+          ansible.builtin.debug:
+            msg: "Failed to configure rsyslog on {{ inventory_hostname }}"
+
+  handlers:
+    - name: Restart chrony
+      ansible.builtin.service:
+        name: "{{ 'chrony' if ansible_os_family == 'Debian' else 'chronyd' }}"
+        state: restarted
+
+    - name: Restart rsyslog
+      ansible.builtin.service:
+        name: rsyslog
+        state: restarted
+
+  post_tasks:
+    - name: Verify infrastructure services
+      ansible.builtin.service_facts:
+
+    - name: Set chrony service name
+      ansible.builtin.set_fact:
+        chrony_status: "{{ ansible_facts.services['chrony.service'].state | default('not installed') if ansible_os_family == 'Debian' else ansible_facts.services['chronyd.service'].state | default('not installed') }}"
+
+    - name: Display service status
+      ansible.builtin.debug:
+        msg: |
+          Infrastructure Services Status on {{ inventory_hostname }}:
+          - Chrony: {{ chrony_status }}
+          - RSyslog: {{ ansible_facts.services['rsyslog.service'].state | default('not installed') }}

@@ -1,0 +1,11 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: infrastructure
+  labels:
+    app.kubernetes.io/name: infrastructure
+    app.kubernetes.io/part-of: vmstation-cluster
+    purpose: infrastructure-services
+  annotations:
+    description: "Namespace for infrastructure services like NTP, syslog, monitoring"

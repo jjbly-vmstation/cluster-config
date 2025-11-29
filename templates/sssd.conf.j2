@@ -1,0 +1,40 @@
+# {{ ansible_managed | default('Managed by Ansible') }}
+# SSSD Configuration
+# Template: sssd.conf.j2
+
+[sssd]
+services = nss, pam, ssh
+config_file_version = 2
+domains = {{ sssd_domain | default(kerberos_domain | default('vmstation.local')) | lower }}
+
+[domain/{{ sssd_domain | default(kerberos_domain | default('vmstation.local')) | lower }}]
+id_provider = {{ sssd_id_provider | default('files') }}
+auth_provider = {{ sssd_auth_provider | default('krb5') }}
+access_provider = {{ sssd_access_provider | default('simple') }}
+chpass_provider = {{ sssd_chpass_provider | default('krb5') }}
+
+# Kerberos settings
+krb5_realm = {{ kerberos_realm | default('VMSTATION.LOCAL') | upper }}
+{% for kdc in kerberos_kdc_servers | default(['localhost']) %}
+krb5_server = {{ kdc }}
+{% endfor %}
+krb5_kpasswd = {{ kerberos_admin_server | default(kerberos_kdc_servers[0] | default('localhost')) }}
+krb5_auth_timeout = 15
+
+# Cache credentials for offline login
+cache_credentials = {{ 'True' if sssd_cache_credentials | default(true) else 'False' }}
+
+# UID range
+min_id = {{ sssd_min_id | default(1000) }}
+
+[nss]
+homedir_substring = /home
+filter_users = root
+filter_groups = root
+
+[pam]
+offline_credentials_expiration = 7
+offline_failed_login_attempts = 3
+offline_failed_login_delay = 5
+
+[ssh]

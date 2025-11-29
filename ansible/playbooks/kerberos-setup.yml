@@ -1,0 +1,230 @@
+---
+# Kerberos/FreeIPA Setup Playbook
+#
+# Configures Kerberos authentication for cluster-wide single sign-on.
+# Supports both FreeIPA server deployment and client enrollment.
+#
+# Usage:
+#   Deploy Kerberos server (FreeIPA):
+#     ansible-playbook -i inventory/production/hosts.yml playbooks/kerberos-setup.yml --tags server
+#
+#   Enroll clients:
+#     ansible-playbook -i inventory/production/hosts.yml playbooks/kerberos-setup.yml --tags client
+#
+# Required Variables:
+#   - kerberos_realm: Kerberos realm (e.g., VMSTATION.LOCAL)
+#   - kerberos_server: Kerberos/FreeIPA server hostname
+#   - kerberos_admin_password: Admin password (use Ansible Vault)
+#
+# Prerequisites:
+#   - DNS properly configured
+#   - Hostname resolvable via DNS
+#   - Time synchronization (NTP) configured
+#
+# Author: VMStation Team
+# License: MIT
+
+- name: Configure Kerberos Authentication
+  hosts: all
+  become: true
+  gather_facts: true
+
+  vars:
+    kerberos_realm: "{{ kerberos_realm | default('VMSTATION.LOCAL') }}"
+    kerberos_domain: "{{ kerberos_domain | default('vmstation.local') }}"
+    kerberos_server: "{{ kerberos_server | default('masternode') }}"
+    is_kerberos_server: "{{ inventory_hostname == kerberos_server }}"
+
+    # Package names vary by distribution
+    kerberos_client_packages_debian:
+      - krb5-user
+      - krb5-config
+      - libpam-krb5
+      - sssd
+      - sssd-krb5
+      - sssd-tools
+
+    kerberos_client_packages_redhat:
+      - krb5-workstation
+      - krb5-libs
+      - sssd
+      - sssd-krb5
+      - sssd-tools
+
+    freeipa_server_packages_redhat:
+      - ipa-server
+      - ipa-server-dns
+
+  pre_tasks:
+    - name: Display Kerberos configuration info
+      ansible.builtin.debug:
+        msg: |
+          Configuring Kerberos on {{ inventory_hostname }}
+          Realm: {{ kerberos_realm }}
+          Domain: {{ kerberos_domain }}
+          Server: {{ kerberos_server }}
+          Role: {{ 'Server (FreeIPA)' if is_kerberos_server else 'Client' }}
+
+    - name: Validate prerequisites
+      ansible.builtin.assert:
+        that:
+          - kerberos_realm is defined
+          - kerberos_realm | length > 0
+        fail_msg: "Kerberos realm must be defined"
+        success_msg: "Prerequisites validated"
+
+    - name: Verify time synchronization
+      ansible.builtin.command:
+        cmd: timedatectl status
+      register: time_status
+      changed_when: false
+      tags: [prereq]
+
+    - name: Warn if time sync issues
+      ansible.builtin.debug:
+        msg: "WARNING: Time synchronization may not be active. Kerberos requires accurate time."
+      when: "'synchronized: yes' not in time_status.stdout"
+      tags: [prereq]
+
+  tasks:
+    # Client Configuration (all hosts)
+    - name: Install Kerberos client packages (Debian)
+      ansible.builtin.apt:
+        name: "{{ kerberos_client_packages_debian }}"
+        state: present
+        update_cache: true
+      when:
+        - ansible_os_family == 'Debian'
+        - not is_kerberos_server
+      tags: [client, install]
+
+    - name: Install Kerberos client packages (RedHat)
+      ansible.builtin.dnf:
+        name: "{{ kerberos_client_packages_redhat }}"
+        state: present
+      when:
+        - ansible_os_family == 'RedHat'
+        - not is_kerberos_server
+      tags: [client, install]
+
+    - name: Deploy Kerberos configuration
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../../templates/krb5.conf.j2"
+        dest: /etc/krb5.conf
+        owner: root
+        group: root
+        mode: '0644'
+        backup: true
+      when: not is_kerberos_server
+      notify: Restart SSSD
+      tags: [client, configure]
+
+    - name: Configure SSSD for Kerberos
+      when: not is_kerberos_server
+      tags: [client, sssd]
+      block:
+        - name: Create SSSD configuration
+          ansible.builtin.template:
+            src: "{{ playbook_dir }}/../../templates/sssd.conf.j2"
+            dest: /etc/sssd/sssd.conf
+            owner: root
+            group: root
+            mode: '0600'
+          notify: Restart SSSD
+
+        - name: Enable SSSD service
+          ansible.builtin.service:
+            name: sssd
+            enabled: true
+            state: started
+
+    # Server Configuration (FreeIPA)
+    - name: Configure FreeIPA server
+      when:
+        - is_kerberos_server
+        - ansible_os_family == 'RedHat'
+      tags: [server, freeipa]
+      block:
+        - name: Install FreeIPA server packages
+          ansible.builtin.dnf:
+            name: "{{ freeipa_server_packages_redhat }}"
+            state: present
+
+        - name: Check if FreeIPA is already installed
+          ansible.builtin.stat:
+            path: /var/lib/ipa/sysrestore
+          register: ipa_installed
+
+        - name: Display FreeIPA installation instructions
+          ansible.builtin.debug:
+            msg: |
+              FreeIPA packages installed. To complete server setup, run:
+
+              ipa-server-install --realm={{ kerberos_realm }} \
+                                 --domain={{ kerberos_domain }} \
+                                 --ds-password=<directory_password> \
+                                 --admin-password=<admin_password> \
+                                 --setup-dns \
+                                 --no-host-dns \
+                                 --unattended
+
+              Note: This is a manual step requiring passwords.
+          when: not ipa_installed.stat.exists
+
+    # Host enrollment (for clients after server is set up)
+    - name: Enroll host to FreeIPA domain
+      when:
+        - not is_kerberos_server
+        - kerberos_enroll | default(false)
+      tags: [client, enroll]
+      block:
+        - name: Install FreeIPA client (RedHat)
+          ansible.builtin.dnf:
+            name: ipa-client
+            state: present
+          when: ansible_os_family == 'RedHat'
+
+        - name: Check if host is already enrolled
+          ansible.builtin.stat:
+            path: /etc/ipa/default.conf
+          register: ipa_client_installed
+
+        - name: Display enrollment instructions
+          ansible.builtin.debug:
+            msg: |
+              To enroll this host in FreeIPA, run:
+
+              ipa-client-install --server={{ kerberos_server }} \
+                                 --domain={{ kerberos_domain }} \
+                                 --realm={{ kerberos_realm }} \
+                                 --principal=admin \
+                                 --unattended
+
+              You will be prompted for the admin password.
+          when: not ipa_client_installed.stat.exists
+
+  handlers:
+    - name: Restart SSSD
+      ansible.builtin.service:
+        name: sssd
+        state: restarted
+
+  post_tasks:
+    - name: Verify Kerberos configuration
+      ansible.builtin.command:
+        cmd: klist -V
+      register: klist_version
+      changed_when: false
+      failed_when: false
+      tags: [verify]
+
+    - name: Display Kerberos status
+      ansible.builtin.debug:
+        msg: |
+          Kerberos Configuration Complete for {{ inventory_hostname }}
+          Role: {{ 'Server' if is_kerberos_server else 'Client' }}
+          Realm: {{ kerberos_realm }}
+
+          To test authentication:
+            kinit admin@{{ kerberos_realm }}
+            klist

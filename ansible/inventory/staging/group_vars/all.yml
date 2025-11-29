@@ -1,0 +1,55 @@
+---
+# Staging Environment - All Hosts Variables
+# Applied to all hosts in the staging environment
+
+# Environment Identification
+environment: staging
+cluster_name: vmstation-staging
+organization: jjbly-vmstation
+
+# Time Synchronization Configuration
+ntp_servers:
+  - 0.pool.ntp.org
+  - 1.pool.ntp.org
+  - 2.pool.ntp.org
+  - 3.pool.ntp.org
+
+# Use chrony for modern systems
+chrony_enabled: true
+chrony_allow_networks:
+  - 192.168.5.0/24
+  - 127.0.0.1
+
+# Syslog Configuration
+syslog_server: staging-master
+syslog_port: 514
+syslog_protocol: udp
+syslog_retention_days: 30
+
+# Security Hardening - Relaxed for testing
+security_ssh_port: 22
+security_disable_root_login: false
+security_password_auth: true  # Allow for testing
+security_permit_empty_passwords: false
+
+# Staging Network Configuration
+cluster_network: 192.168.5.0/24
+cluster_gateway: 192.168.5.1
+cluster_dns:
+  - 192.168.5.1
+  - 8.8.8.8
+
+# Package Management
+package_update_cache: true
+package_upgrade: true  # Allow upgrades in staging
+
+# Common Directories
+config_backup_dir: /var/backup/config
+log_dir: /var/log/vmstation
+
+# Tags for selective execution
+baseline_tags:
+  - common
+  - ntp
+  - syslog
+  - security

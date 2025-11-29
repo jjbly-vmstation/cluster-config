@@ -1,0 +1,7 @@
+---
+# Common Role - Handlers
+
+- name: Reload sysctl
+  ansible.builtin.command:
+    cmd: sysctl --system
+  listen: Reload sysctl

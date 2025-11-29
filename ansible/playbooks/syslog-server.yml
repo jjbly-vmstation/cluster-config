@@ -1,0 +1,210 @@
+---
+# Syslog Server Deployment Playbook
+#
+# Configures centralized syslog collection with rsyslog.
+# Supports both server (collector) and client (forwarder) modes.
+#
+# Usage:
+#   Deploy syslog server:
+#     ansible-playbook -i inventory/production/hosts.yml playbooks/syslog-server.yml --limit masternode
+#
+#   Deploy syslog clients:
+#     ansible-playbook -i inventory/production/hosts.yml playbooks/syslog-server.yml
+#
+# Required Variables:
+#   - syslog_server: Hostname or IP of syslog server
+#   - syslog_port: Port for syslog (default: 514)
+#   - syslog_protocol: Protocol (udp/tcp, default: udp)
+#
+# Features:
+#   - Centralized log collection
+#   - Log rotation and retention
+#   - Optional TLS encryption
+#   - Rate limiting and filtering
+#
+# Author: VMStation Team
+# License: MIT
+
+- name: Deploy Syslog Server/Client Configuration
+  hosts: all
+  become: true
+  gather_facts: true
+
+  vars:
+    rsyslog_package: rsyslog
+    rsyslog_config_path: /etc/rsyslog.conf
+    rsyslog_conf_d_path: /etc/rsyslog.d
+    rsyslog_log_path: /var/log
+    rsyslog_retention_days: "{{ syslog_retention_days | default(90) }}"
+    is_syslog_server: "{{ inventory_hostname == (syslog_server | default('masternode')) }}"
+
+  pre_tasks:
+    - name: Display syslog configuration info
+      ansible.builtin.debug:
+        msg: |
+          Configuring Syslog on {{ inventory_hostname }}
+          Role: {{ 'Server' if is_syslog_server else 'Client' }}
+          Server: {{ syslog_server | default('masternode') }}
+          Port: {{ syslog_port | default(514) }}
+          Protocol: {{ syslog_protocol | default('udp') }}
+          Retention: {{ rsyslog_retention_days }} days
+
+  tasks:
+    - name: Install rsyslog package
+      ansible.builtin.package:
+        name: "{{ rsyslog_package }}"
+        state: present
+      tags: [install]
+
+    - name: Create rsyslog.d directory
+      ansible.builtin.file:
+        path: "{{ rsyslog_conf_d_path }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      tags: [configure]
+
+    - name: Deploy rsyslog main configuration
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../../templates/rsyslog.conf.j2"
+        dest: "{{ rsyslog_config_path }}"
+        owner: root
+        group: root
+        mode: '0644'
+        backup: true
+        validate: 'rsyslogd -N1 -f %s'
+      notify: Restart rsyslog
+      tags: [configure]
+
+    # Server-specific configuration
+    - name: Configure syslog server
+      when: is_syslog_server
+      tags: [server]
+      block:
+        - name: Create remote logs directory
+          ansible.builtin.file:
+            path: "{{ rsyslog_log_path }}/remote"
+            state: directory
+            owner: syslog
+            group: adm
+            mode: '0750'
+          failed_when: false  # May fail if syslog user doesn't exist
+
+        - name: Create syslog server configuration
+          ansible.builtin.copy:
+            content: |
+              # {{ ansible_managed | default('Managed by Ansible') }}
+              # Syslog Server Configuration
+
+              # Load UDP module for receiving logs
+              module(load="imudp")
+              input(type="imudp" port="{{ syslog_port | default(514) }}")
+
+              # Load TCP module for receiving logs
+              module(load="imtcp")
+              input(type="imtcp" port="{{ syslog_port | default(514) }}")
+
+              # Template for remote logs
+              template(name="RemoteLogs" type="string"
+                       string="/var/log/remote/%HOSTNAME%/%PROGRAMNAME%.log")
+
+              # Store remote logs by hostname
+              if $fromhost-ip != "127.0.0.1" then ?RemoteLogs
+              & stop
+            dest: "{{ rsyslog_conf_d_path }}/10-server.conf"
+            owner: root
+            group: root
+            mode: '0644'
+          notify: Restart rsyslog
+
+        - name: Configure logrotate for remote logs
+          ansible.builtin.copy:
+            content: |
+              {{ rsyslog_log_path }}/remote/*/*.log {
+                  daily
+                  missingok
+                  rotate {{ rsyslog_retention_days }}
+                  compress
+                  delaycompress
+                  notifempty
+                  create 0640 syslog adm
+                  sharedscripts
+                  postrotate
+                      /usr/lib/rsyslog/rsyslog-rotate
+                  endscript
+              }
+            dest: /etc/logrotate.d/rsyslog-remote
+            owner: root
+            group: root
+            mode: '0644'
+
+    # Client-specific configuration
+    - name: Configure syslog client
+      when: not is_syslog_server
+      tags: [client]
+      block:
+        - name: Create syslog client configuration
+          ansible.builtin.copy:
+            content: |
+              # {{ ansible_managed | default('Managed by Ansible') }}
+              # Syslog Client Configuration - Forward to {{ syslog_server | default('masternode') }}
+
+              # Forward all logs to syslog server
+              *.* @{{ syslog_server | default('masternode') }}:{{ syslog_port | default(514) }}
+
+              # For TCP (more reliable), uncomment below and comment above:
+              # *.* @@{{ syslog_server | default('masternode') }}:{{ syslog_port | default(514) }}
+            dest: "{{ rsyslog_conf_d_path }}/10-forward.conf"
+            owner: root
+            group: root
+            mode: '0644'
+          notify: Restart rsyslog
+
+    - name: Ensure rsyslog is enabled and started
+      ansible.builtin.service:
+        name: rsyslog
+        state: started
+        enabled: true
+      tags: [service]
+
+    - name: Configure firewall for syslog server
+      when:
+        - is_syslog_server
+        - ansible_os_family == 'RedHat'
+      ansible.posix.firewalld:
+        port: "{{ syslog_port | default(514) }}/{{ syslog_protocol | default('udp') }}"
+        permanent: true
+        state: enabled
+      notify: Reload firewall
+      failed_when: false
+      tags: [firewall]
+
+  handlers:
+    - name: Restart rsyslog
+      ansible.builtin.service:
+        name: rsyslog
+        state: restarted
+
+    - name: Reload firewall
+      ansible.builtin.service:
+        name: firewalld
+        state: reloaded
+      failed_when: false
+
+  post_tasks:
+    - name: Verify rsyslog is running
+      ansible.builtin.service_facts:
+
+    - name: Display rsyslog status
+      ansible.builtin.debug:
+        msg: |
+          Syslog Configuration Complete for {{ inventory_hostname }}
+          Role: {{ 'Server' if is_syslog_server else 'Client' }}
+          Service Status: {{ ansible_facts.services['rsyslog.service'].state | default('unknown') }}
+
+    - name: Test syslog (send test message)
+      ansible.builtin.command:
+        cmd: logger -t "ansible-syslog-test" "Syslog configuration test from {{ inventory_hostname }}"
+      changed_when: false
+      tags: [test]

@@ -1,0 +1,54 @@
+---
+# Kerberos Role - Default Variables
+
+# Kerberos realm (uppercase)
+kerberos_realm: VMSTATION.LOCAL
+
+# Kerberos domain (lowercase)
+kerberos_domain: vmstation.local
+
+# KDC (Key Distribution Center) servers
+kerberos_kdc_servers:
+  - masternode
+
+# Admin server
+kerberos_admin_server: masternode
+
+# DNS lookup settings
+kerberos_dns_lookup_kdc: false
+kerberos_dns_lookup_realm: false
+
+# Default encryption types
+kerberos_enctypes:
+  - aes256-cts-hmac-sha1-96
+  - aes128-cts-hmac-sha1-96
+
+# Ticket settings
+kerberos_ticket_lifetime: 24h
+kerberos_renew_lifetime: 7d
+
+# Enable SSSD integration
+kerberos_sssd_enabled: true
+
+# Enable PAM integration
+kerberos_pam_enabled: false
+
+# Packages to install
+kerberos_packages_debian:
+  - krb5-user
+  - krb5-config
+  - libpam-krb5
+  - sssd
+  - sssd-krb5
+  - sssd-tools
+
+kerberos_packages_redhat:
+  - krb5-workstation
+  - krb5-libs
+  - sssd
+  - sssd-krb5
+  - sssd-tools
+
+# SSSD settings
+sssd_cache_credentials: true
+sssd_min_id: 1000

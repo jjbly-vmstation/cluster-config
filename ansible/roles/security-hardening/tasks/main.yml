@@ -1,0 +1,113 @@
+---
+# Security Hardening Role - Main Tasks
+#
+# Implements security hardening based on CIS Benchmarks
+
+- name: Configure SSH hardening
+  tags: [ssh, security]
+  block:
+    - name: Ensure SSH configuration directory exists
+      ansible.builtin.file:
+        path: /etc/ssh/sshd_config.d
+        state: directory
+        mode: '0755'
+
+    - name: Deploy SSH hardening configuration
+      ansible.builtin.template:
+        src: sshd_hardening.conf.j2
+        dest: /etc/ssh/sshd_config.d/99-hardening.conf
+        owner: root
+        group: root
+        mode: '0600'
+        validate: '/usr/sbin/sshd -t -f %s'
+      notify: Restart SSH
+
+    - name: Create login banner
+      ansible.builtin.template:
+        src: issue.net.j2
+        dest: /etc/issue.net
+        owner: root
+        group: root
+        mode: '0644'
+
+- name: Configure kernel security parameters
+  tags: [sysctl, security]
+  block:
+    - name: Deploy security sysctl configuration
+      ansible.builtin.template:
+        src: sysctl-security.conf.j2
+        dest: /etc/sysctl.d/99-security.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Reload sysctl
+
+- name: Configure password policy
+  tags: [password, security]
+  block:
+    - name: Set password aging policy
+      ansible.builtin.lineinfile:
+        path: /etc/login.defs
+        regexp: "^{{ item.key }}"
+        line: "{{ item.key }} {{ item.value }}"
+      loop:
+        - { key: 'PASS_MAX_DAYS', value: "{{ password_max_age }}" }
+        - { key: 'PASS_MIN_DAYS', value: "{{ password_min_age }}" }
+        - { key: 'PASS_MIN_LEN', value: "{{ password_min_length }}" }
+        - { key: 'PASS_WARN_AGE', value: "{{ password_warn_age }}" }
+
+- name: Secure file permissions
+  tags: [permissions, security]
+  block:
+    - name: Set secure permissions on critical files
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        mode: "{{ item.mode }}"
+        owner: root
+        group: root
+      loop: "{{ secure_files }}"
+      ignore_errors: true
+
+- name: Configure audit logging
+  tags: [audit, security]
+  block:
+    - name: Install auditd
+      ansible.builtin.package:
+        name: "{{ 'auditd' if ansible_os_family == 'Debian' else 'audit' }}"
+        state: present
+
+    - name: Enable auditd service
+      ansible.builtin.service:
+        name: auditd
+        enabled: true
+        state: started
+
+- name: Configure firewall (optional)
+  when: firewall_enabled | default(false)
+  tags: [firewall, security]
+  block:
+    - name: Install firewalld (RedHat)
+      ansible.builtin.dnf:
+        name: firewalld
+        state: present
+      when: ansible_os_family == 'RedHat'
+
+    - name: Enable firewalld
+      ansible.builtin.service:
+        name: firewalld
+        enabled: true
+        state: started
+      when: ansible_os_family == 'RedHat'
+
+- name: Verify SSH configuration
+  ansible.builtin.command:
+    cmd: sshd -t
+  register: ssh_test
+  changed_when: false
+  failed_when: false
+  tags: [verify]
+
+- name: Display verification results
+  ansible.builtin.debug:
+    msg: "SSH configuration test: {{ 'PASSED' if ssh_test.rc == 0 else 'FAILED - check configuration' }}"
+  tags: [verify]

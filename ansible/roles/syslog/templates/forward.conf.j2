@@ -1,0 +1,27 @@
+# {{ ansible_managed | default('Managed by Ansible') }}
+# Syslog Client Configuration - Forward to {{ syslog_server | default('masternode') }}
+
+# Forward all logs to central syslog server
+{% if syslog_protocol | default('udp') == 'tcp' %}
+# Using TCP for reliable delivery
+*.* @@{{ syslog_server | default('masternode') }}:{{ syslog_port | default(514) }}
+{% else %}
+# Using UDP for low overhead
+*.* @{{ syslog_server | default('masternode') }}:{{ syslog_port | default(514) }}
+{% endif %}
+
+{% if syslog_tls_enabled | default(false) %}
+# TLS encrypted forwarding
+action(type="omfwd" target="{{ syslog_server | default('masternode') }}" port="{{ syslog_port | default(514) }}"
+       protocol="tcp"
+       StreamDriver="gtls"
+       StreamDriverMode="1"
+       StreamDriverAuthMode="x509/name")
+{% endif %}
+
+# Queue settings for reliability
+$ActionQueueType LinkedList
+$ActionQueueFileName forward
+$ActionQueueMaxDiskSpace 1g
+$ActionQueueSaveOnShutdown on
+$ActionResumeRetryCount -1

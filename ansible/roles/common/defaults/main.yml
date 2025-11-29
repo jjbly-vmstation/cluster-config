@@ -1,0 +1,37 @@
+---
+# Common Role - Default Variables
+
+# Common packages to install on all systems
+common_packages_debian:
+  - vim
+  - curl
+  - wget
+  - htop
+  - net-tools
+  - dnsutils
+  - gnupg
+  - ca-certificates
+  - apt-transport-https
+
+common_packages_redhat:
+  - vim-enhanced
+  - curl
+  - wget
+  - htop
+  - net-tools
+  - bind-utils
+  - gnupg2
+  - ca-certificates
+
+# Timezone
+timezone: UTC
+
+# Common directories
+config_backup_dir: /var/backup/config
+log_dir: /var/log/vmstation
+
+# DNS settings
+dns_search_domains: []
+dns_nameservers:
+  - 8.8.8.8
+  - 8.8.4.4

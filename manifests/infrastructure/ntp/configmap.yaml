@@ -1,0 +1,30 @@
+---
+# NTP ConfigMap
+# Contains chrony configuration for Kubernetes pods that need time synchronization
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chrony-config
+  namespace: infrastructure
+  labels:
+    app.kubernetes.io/name: chrony
+    app.kubernetes.io/component: ntp
+data:
+  chrony.conf: |
+    # NTP servers
+    server 0.pool.ntp.org iburst
+    server 1.pool.ntp.org iburst
+    server 2.pool.ntp.org iburst
+    server 3.pool.ntp.org iburst
+    
+    # Drift file
+    driftfile /var/lib/chrony/drift
+    
+    # RTC sync
+    rtcsync
+    
+    # Allow larger time adjustments on startup
+    makestep 1.0 3
+    
+    # Log directory
+    logdir /var/log/chrony

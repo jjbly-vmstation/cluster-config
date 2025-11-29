@@ -1,0 +1,41 @@
+# {{ ansible_managed | default('Managed by Ansible') }}
+# SSH Security Hardening Configuration
+# Generated for {{ inventory_hostname }}
+
+# Protocol version
+Protocol 2
+
+# Strong algorithms only
+KexAlgorithms {{ ssh_kex_algorithms | join(',') }}
+Ciphers {{ ssh_ciphers | join(',') }}
+MACs {{ ssh_macs | join(',') }}
+
+# Authentication settings
+PermitRootLogin {{ ssh_permit_root_login }}
+PasswordAuthentication {{ ssh_password_auth }}
+PermitEmptyPasswords {{ ssh_permit_empty_passwords }}
+MaxAuthTries {{ ssh_max_auth_tries }}
+MaxSessions {{ ssh_max_sessions }}
+
+# Disable unused features
+X11Forwarding {{ 'yes' if ssh_x11_forwarding | default(false) else 'no' }}
+AllowAgentForwarding no
+AllowTcpForwarding no
+PermitTunnel no
+
+# Logging
+SyslogFacility AUTH
+LogLevel VERBOSE
+
+# Timeouts
+ClientAliveInterval {{ ssh_client_alive_interval }}
+ClientAliveCountMax {{ ssh_client_alive_count_max }}
+LoginGraceTime 60
+
+# Banner
+Banner /etc/issue.net
+
+# Disable authentication methods we don't need
+ChallengeResponseAuthentication no
+GSSAPIAuthentication no
+HostbasedAuthentication no

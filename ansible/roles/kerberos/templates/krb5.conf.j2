@@ -1,0 +1,37 @@
+# {{ ansible_managed | default('Managed by Ansible') }}
+# Kerberos Configuration
+# Generated for {{ inventory_hostname }}
+
+[libdefaults]
+    default_realm = {{ kerberos_realm | upper }}
+    dns_lookup_realm = {{ 'true' if kerberos_dns_lookup_realm | default(false) else 'false' }}
+    dns_lookup_kdc = {{ 'true' if kerberos_dns_lookup_kdc | default(false) else 'false' }}
+    ticket_lifetime = {{ kerberos_ticket_lifetime | default('24h') }}
+    renew_lifetime = {{ kerberos_renew_lifetime | default('7d') }}
+    forwardable = true
+    rdns = false
+    pkinit_anchors = FILE:/etc/pki/tls/certs/ca-bundle.crt
+    default_ccache_name = KEYRING:persistent:%{uid}
+{% if kerberos_enctypes is defined %}
+    default_tgs_enctypes = {{ kerberos_enctypes | join(' ') }}
+    default_tkt_enctypes = {{ kerberos_enctypes | join(' ') }}
+    permitted_enctypes = {{ kerberos_enctypes | join(' ') }}
+{% endif %}
+
+[realms]
+    {{ kerberos_realm | upper }} = {
+{% for kdc in kerberos_kdc_servers | default([]) %}
+        kdc = {{ kdc }}
+{% endfor %}
+        admin_server = {{ kerberos_admin_server | default(kerberos_kdc_servers[0] | default('localhost')) }}
+        default_domain = {{ kerberos_domain | lower }}
+    }
+
+[domain_realm]
+    .{{ kerberos_domain | lower }} = {{ kerberos_realm | upper }}
+    {{ kerberos_domain | lower }} = {{ kerberos_realm | upper }}
+
+[logging]
+    default = FILE:/var/log/krb5libs.log
+    kdc = FILE:/var/log/krb5kdc.log
+    admin_server = FILE:/var/log/kadmind.log

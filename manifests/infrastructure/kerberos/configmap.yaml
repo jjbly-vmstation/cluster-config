@@ -1,0 +1,37 @@
+---
+# Kerberos ConfigMap
+# Contains Kerberos client configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: krb5-config
+  namespace: infrastructure
+  labels:
+    app.kubernetes.io/name: kerberos
+    app.kubernetes.io/component: authentication
+data:
+  krb5.conf: |
+    [libdefaults]
+        default_realm = VMSTATION.LOCAL
+        dns_lookup_realm = false
+        dns_lookup_kdc = false
+        ticket_lifetime = 24h
+        renew_lifetime = 7d
+        forwardable = true
+        rdns = false
+    
+    [realms]
+        VMSTATION.LOCAL = {
+            kdc = masternode
+            admin_server = masternode
+            default_domain = vmstation.local
+        }
+    
+    [domain_realm]
+        .vmstation.local = VMSTATION.LOCAL
+        vmstation.local = VMSTATION.LOCAL
+    
+    [logging]
+        default = FILE:/var/log/krb5libs.log
+        kdc = FILE:/var/log/krb5kdc.log
+        admin_server = FILE:/var/log/kadmind.log

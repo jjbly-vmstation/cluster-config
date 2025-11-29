@@ -1,0 +1,26 @@
+---
+# Security Hardening Role - Meta Information
+
+galaxy_info:
+  author: VMStation Team
+  description: Security hardening based on CIS Benchmarks
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+        - "10"
+  galaxy_tags:
+    - security
+    - hardening
+    - cis
+    - compliance
+
+dependencies:
+  - role: common
