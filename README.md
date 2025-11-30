@@ -14,63 +14,33 @@ This repository tracks and enforces the desired state of all critical machine co
 - Enable automated validation and enforcement of desired state
 - Provide standardized infrastructure services (NTP, Syslog, Security)
 
+
 ## Repository Structure
 
 ```
 cluster-config/
 ├── README.md                          # This file
 ├── IMPROVEMENTS_AND_STANDARDS.md      # Best practices and standards
-├── ansible/                           # New Ansible directory structure
-│   ├── ansible.cfg                   # Ansible configuration
-│   ├── inventory/
-│   │   ├── production/               # Production environment
-│   │   │   ├── hosts.yml
-│   │   │   └── group_vars/all.yml
-│   │   └── staging/                  # Staging environment
-│   │       ├── hosts.yml
-│   │       └── group_vars/all.yml
-│   ├── playbooks/
-│   │   ├── site.yml                  # Main entry point
-│   │   ├── infrastructure-services.yml
-│   │   ├── ntp-sync.yml
-│   │   ├── syslog-server.yml
-│   │   ├── kerberos-setup.yml
-│   │   └── baseline-hardening.yml
-│   ├── roles/
-│   │   ├── common/                   # Base configuration
-│   │   ├── ntp/                      # Time synchronization
-│   │   ├── syslog/                   # Centralized logging
-│   │   ├── kerberos/                 # Kerberos/SSO
-│   │   └── security-hardening/       # Security baseline
-│   └── group_vars/all.yml
+├── ansible/                           # Ansible directory structure
 ├── hosts/                             # Per-host configuration files
-│   ├── masternode/                   # Control plane host
-│   ├── storagenodet3500/             # Storage worker
-│   └── homelab/                      # Compute worker
 ├── group/                             # Shared configs for groups
-│   ├── common/                       # Configs applied to all machines
-│   └── storage/                      # Storage node specific
 ├── manifests/                         # Kubernetes manifests
-│   ├── infrastructure/
-│   │   ├── namespace.yaml
-│   │   ├── ntp/
-│   │   ├── syslog/
-│   │   └── kerberos/
-│   └── network/
 ├── templates/                         # Jinja2 templates
-│   ├── chrony.conf.j2
-│   ├── rsyslog.conf.j2
-│   └── ...
-├── docs/                              # Documentation
-│   ├── INFRASTRUCTURE_SERVICES.md
-│   ├── TIME_SYNC_SETUP.md
-│   ├── SYSLOG_CONFIGURATION.md
-│   └── KERBEROS_SETUP.md
 ├── playbooks/                         # Legacy playbooks
 ├── roles/                             # Legacy roles
 ├── inventory/hosts.ini                # Legacy inventory
 └── scripts/                           # Helper scripts
 ```
+
+## Documentation
+
+All detailed infrastructure and configuration documentation has been centralized in the [cluster-docs/components/](../cluster-docs/components/) directory. Please refer to that location for:
+- Infrastructure services
+- Kerberos setup
+- Syslog configuration
+- Time sync setup
+
+This repository only contains the README and improvements/standards documentation.
 
 ## Quick Start
 
