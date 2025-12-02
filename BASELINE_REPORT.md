@@ -30,7 +30,10 @@ This report documents the baseline configuration state of all VMStation cluster 
   - OS: Red Hat Enterprise Linux 10.0 (Coughlan)
   - WOL MAC: d0:94:66:30:d6:63
   - Note: Uses non-root user with passwordless sudo
-
+- **iDRAC** (192.168.4.60)
+  - Role: iDRAC controller for homelab node
+  - OS: iDRAC 8
+  - WOL MAC: d0:94:66:30:d6:67
 ---
 
 ## Configuration Coverage
