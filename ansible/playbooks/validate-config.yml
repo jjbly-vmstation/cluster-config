@@ -1,6 +1,6 @@
 ---
 # Validate configuration and detect drift
-# Usage: ansible-playbook -i inventory/hosts.ini playbooks/validate-config.yml
+# Usage: ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/validate-config.yml
 
 - name: Validate Machine Configurations and Detect Drift
   hosts: all
@@ -141,7 +141,7 @@
           Remediation:
           {% if overall_drift %}
           - Review drift using: ./scripts/check-drift.sh {{ os_type }}
-          - Re-apply config: ansible-playbook -i inventory/hosts.ini playbooks/apply-config.yml --limit {{ inventory_hostname }}
+          - Re-apply config: ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/apply-config.yml --limit {{ inventory_hostname }}
           - Update repo if changes are intentional: ./scripts/gather-config.sh {{ inventory_hostname }} {{ os_type }}
           {% else %}
           - No action required

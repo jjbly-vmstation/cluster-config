@@ -27,7 +27,7 @@ git pull origin main
 
 ### Configure Ansible Inventory
 
-Edit `inventory/hosts.ini` to add your hosts:
+Edit /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml` to add your hosts:
 
 ```ini
 [debian12]
@@ -94,16 +94,16 @@ Now you can enforce this configuration on other hosts:
 
 ```bash
 # Test first (dry-run)
-ansible-playbook -i inventory/hosts.ini playbooks/apply-config.yml --check
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/apply-config.yml --check
 
 # Apply to all hosts
-ansible-playbook -i inventory/hosts.ini playbooks/apply-config.yml
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/apply-config.yml
 
 # Apply to specific host
-ansible-playbook -i inventory/hosts.ini playbooks/apply-config.yml --limit web-02
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/apply-config.yml --limit web-02
 
 # Apply specific role only
-ansible-playbook -i inventory/hosts.ini playbooks/apply-config.yml --tags ssh
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/apply-config.yml --tags ssh
 ```
 
 ## Step 6: Validate Configuration
@@ -112,7 +112,7 @@ Check for drift between repository and live systems:
 
 ```bash
 # Using Ansible
-ansible-playbook -i inventory/hosts.ini playbooks/validate-config.yml
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/validate-config.yml
 
 # Using standalone script (run on target host)
 ssh root@web-01
@@ -126,18 +126,18 @@ cd /path/to/machine-config-repo
 
 ```bash
 # 1. Add to inventory
-echo "web-03 ansible_host=192.168.1.12" >> inventory/hosts.ini
+echo "web-03 ansible_host=192.168.1.12" >> /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml
 
 # 2. Gather its config
 ssh root@web-03
 ./scripts/gather-config.sh web-03 debian12
 
 # 3. Review and commit
-git add hosts/debian12/ inventory/hosts.ini
+git add hosts/debian12/ /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml
 git commit -m "Add web-03"
 
 # 4. Or apply existing config to it
-ansible-playbook -i inventory/hosts.ini playbooks/apply-config.yml --limit web-03
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/apply-config.yml --limit web-03
 ```
 
 ### Use Case 2: Update SSH Configuration
@@ -151,20 +151,20 @@ git add hosts/debian12/sshd_config
 git commit -m "Disable root login for security"
 
 # 3. Test on one host first
-ansible-playbook -i inventory/hosts.ini playbooks/apply-config.yml --limit web-01 --tags ssh
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/apply-config.yml --limit web-01 --tags ssh
 
 # 4. Roll out to all hosts
-ansible-playbook -i inventory/hosts.ini playbooks/apply-config.yml --tags ssh
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/apply-config.yml --tags ssh
 ```
 
 ### Use Case 3: Detect and Fix Drift
 
 ```bash
 # 1. Run drift detection
-ansible-playbook -i inventory/hosts.ini playbooks/validate-config.yml
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/validate-config.yml
 
 # 2. If drift is found and unwanted, re-apply config
-ansible-playbook -i inventory/hosts.ini playbooks/apply-config.yml --limit web-01
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/apply-config.yml --limit web-01
 
 # 3. If drift is legitimate, update repo
 ssh root@web-01
@@ -193,7 +193,7 @@ git add hosts/debian12/
 git commit -m "Add eth1 configuration"
 
 # 5. Apply to other hosts
-ansible-playbook -i inventory/hosts.ini playbooks/apply-config.yml --tags networking
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/apply-config.yml --tags networking
 ```
 
 ## Scheduled Drift Detection
@@ -207,7 +207,7 @@ Set up a cron job or systemd timer to detect drift automatically:
 crontab -e
 
 # Run drift check daily at 2 AM
-0 2 * * * cd /path/to/machine-config-repo && ansible-playbook -i inventory/hosts.ini playbooks/validate-config.yml > /var/log/config-drift.log 2>&1
+0 2 * * * cd /path/to/machine-config-repo && ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/validate-config.yml > /var/log/config-drift.log 2>&1
 ```
 
 ### Using Systemd Timer
@@ -221,7 +221,7 @@ After=network.target
 [Service]
 Type=oneshot
 WorkingDirectory=/path/to/machine-config-repo
-ExecStart=/usr/bin/ansible-playbook -i inventory/hosts.ini playbooks/validate-config.yml
+ExecStart=/usr/bin/ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/validate-config.yml
 User=root
 ```
 
@@ -276,7 +276,7 @@ jobs:
       
       - name: Run validation
         run: |
-          ansible-playbook -i inventory/hosts.ini playbooks/validate-config.yml
+          ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/validate-config.yml
         env:
           ANSIBLE_HOST_KEY_CHECKING: False
       
@@ -306,7 +306,7 @@ sudo ./scripts/gather-config.sh hostname debian12
 
 **Solution**: Check SSH connectivity and inventory
 ```bash
-ansible all -i inventory/hosts.ini -m ping
+ansible all -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml -m ping
 ssh -vvv root@target-host
 ```
 
@@ -314,7 +314,7 @@ ssh -vvv root@target-host
 
 **Solution**: Run in check mode first to see what would change
 ```bash
-ansible-playbook -i inventory/hosts.ini playbooks/apply-config.yml --check --diff
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/apply-config.yml --check --diff
 ```
 
 ### Problem: Network configuration breaks connectivity
@@ -384,17 +384,17 @@ sleep 30
 ./scripts/check-drift.sh <debian12|rhel10>
 
 # Apply all configs
-ansible-playbook -i inventory/hosts.ini playbooks/apply-config.yml
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/apply-config.yml
 
 # Apply to specific host
-ansible-playbook -i inventory/hosts.ini playbooks/apply-config.yml --limit hostname
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/apply-config.yml --limit hostname
 
 # Apply specific role
-ansible-playbook -i inventory/hosts.ini playbooks/apply-config.yml --tags ssh
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/apply-config.yml --tags ssh
 
 # Validate configs
-ansible-playbook -i inventory/hosts.ini playbooks/validate-config.yml
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/validate-config.yml
 
 # Test before applying
-ansible-playbook -i inventory/hosts.ini playbooks/apply-config.yml --check --diff
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/apply-config.yml --check --diff
 ```

@@ -7,8 +7,8 @@
 # - Common system configurations
 #
 # Usage:
-#   ansible-playbook -i inventory/production/hosts.yml playbooks/infrastructure-services.yml
-#   ansible-playbook -i inventory/production/hosts.yml playbooks/infrastructure-services.yml --tags ntp
+#   ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/infrastructure-services.yml
+#   ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/infrastructure-services.yml --tags ntp
 #
 # Author: VMStation Team
 # License: MIT

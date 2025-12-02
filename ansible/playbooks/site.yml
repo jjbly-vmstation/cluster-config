@@ -6,11 +6,11 @@
 #
 # Usage:
 #   Full deployment:
-#     ansible-playbook -i inventory/production/hosts.yml playbooks/site.yml
+#     ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/site.yml
 #
 #   Selective deployment:
-#     ansible-playbook -i inventory/production/hosts.yml playbooks/site.yml --tags ntp
-#     ansible-playbook -i inventory/production/hosts.yml playbooks/site.yml --tags security
+#     ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/site.yml --tags ntp
+#     ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/site.yml --tags security
 #
 # Required Variables:
 #   - environment_name: Target environment (production/staging)

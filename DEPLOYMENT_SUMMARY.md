@@ -103,7 +103,7 @@ machine-config-repo/
 │   └── system/                       # System-level settings
 │
 ├── inventory/
-│   └── hosts.ini                     # All 3 hosts configured
+│   └── /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml                     # All 3 hosts configured
 │
 └── scripts/
     ├── gather-config.sh              # Manual config gathering
@@ -157,7 +157,7 @@ jobs:
       
       - name: Run drift detection
         run: |
-          ansible-playbook -i inventory/hosts.ini playbooks/validate-config.yml
+          ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/validate-config.yml
       
       - name: Create issue on drift
         if: failure()
@@ -176,7 +176,7 @@ jobs:
 
 ```bash
 # Add to crontab
-0 2 * * * cd /srv/monitoring_data/VMStation/machine-config-repo && ansible-playbook -i inventory/hosts.ini playbooks/validate-config.yml > /var/log/config-drift.log 2>&1
+0 2 * * * cd /srv/monitoring_data/VMStation/machine-config-repo && ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/validate-config.yml > /var/log/config-drift.log 2>&1
 ```
 
 ### 4. Document in Main Org README
@@ -206,30 +206,30 @@ Machine configuration version control for all VMStation hosts.
 cd /srv/monitoring_data/VMStation/machine-config-repo
 
 # Check all hosts
-ansible-playbook -i inventory/hosts.ini playbooks/validate-config.yml
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/validate-config.yml
 
 # Check specific host
-ansible-playbook -i inventory/hosts.ini playbooks/validate-config.yml --limit homelab
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/validate-config.yml --limit homelab
 ```
 
 ### Apply Configuration
 
 ```bash
 # Test what would change (dry-run)
-ansible-playbook -i inventory/hosts.ini playbooks/apply-config.yml --check --diff
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/apply-config.yml --check --diff
 
 # Apply to all hosts
-ansible-playbook -i inventory/hosts.ini playbooks/apply-config.yml
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/apply-config.yml
 
 # Apply specific configuration type
-ansible-playbook -i inventory/hosts.ini playbooks/apply-config.yml --tags ssh
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/apply-config.yml --tags ssh
 ```
 
 ### Update Baseline After Legitimate Change
 
 ```bash
 # Re-gather from changed host
-ansible-playbook -i inventory/hosts.ini playbooks/gather-baseline.yml --limit masternode
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/gather-baseline.yml --limit masternode
 
 # Review changes
 git diff
@@ -331,7 +331,7 @@ sudo nmcli connection up static-eno1
 
 ```bash
 # Always test in check mode first
-ansible-playbook -i inventory/hosts.ini playbooks/apply-config.yml --check --diff --limit storagenodet3500
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/apply-config.yml --check --diff --limit storagenodet3500
 ```
 
 ---

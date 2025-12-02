@@ -1,6 +1,6 @@
 ---
 # Apply configuration management to enforce desired state
-# Usage: ansible-playbook -i inventory/hosts.ini playbooks/apply-config.yml
+# Usage: ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/apply-config.yml
 
 - name: Apply Machine Configurations
   hosts: all

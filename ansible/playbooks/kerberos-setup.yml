@@ -6,10 +6,10 @@
 #
 # Usage:
 #   Deploy Kerberos server (FreeIPA):
-#     ansible-playbook -i inventory/production/hosts.yml playbooks/kerberos-setup.yml --tags server
+#     ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/kerberos-setup.yml --tags server
 #
 #   Enroll clients:
-#     ansible-playbook -i inventory/production/hosts.yml playbooks/kerberos-setup.yml --tags client
+#     ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/kerberos-setup.yml --tags client
 #
 # Required Variables:
 #   - kerberos_realm: Kerberos realm (e.g., VMSTATION.LOCAL)

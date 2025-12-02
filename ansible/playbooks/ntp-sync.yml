@@ -8,7 +8,7 @@
 # - Distributed system coordination
 #
 # Usage:
-#   ansible-playbook -i inventory/production/hosts.yml playbooks/ntp-sync.yml
+#   ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/ntp-sync.yml
 #
 # Required Variables:
 #   - ntp_servers: List of NTP servers to use

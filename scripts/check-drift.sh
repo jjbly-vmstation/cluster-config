@@ -164,6 +164,6 @@ else
     echo "  2. If changes are intentional, update the repository:"
     echo "     ./scripts/gather-config.sh <hostname> ${OS_TYPE}"
     echo "  3. If changes are unwanted, re-apply configurations:"
-    echo "     ansible-playbook -i inventory/hosts.ini playbooks/apply-config.yml"
+    echo "     ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/apply-config.yml"
     exit 1
 fi

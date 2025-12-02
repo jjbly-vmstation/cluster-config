@@ -1,7 +1,7 @@
 ---
 # Gather Baseline Configurations from All Cluster Machines
 # This playbook safely collects critical configurations to establish a baseline
-# Usage: ansible-playbook -i ../inventory/hosts.ini playbooks/gather-baseline.yml
+# Usage: ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/gather-baseline.yml
 
 - name: Gather Baseline Configuration from All Hosts
   hosts: all

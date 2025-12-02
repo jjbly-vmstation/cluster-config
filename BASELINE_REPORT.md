@@ -249,7 +249,7 @@ These must be managed separately using secure secrets management.
 
 1. **Identify drift**:
    ```bash
-   ansible-playbook -i inventory/hosts.ini playbooks/validate-config.yml
+  ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/validate-config.yml
    # or
    ./scripts/check-drift.sh debian12  # on Debian hosts
    ```
@@ -270,7 +270,7 @@ These must be managed separately using secure secrets management.
    
    - **If change is unwanted**: Re-apply baseline
      ```bash
-     ansible-playbook -i inventory/hosts.ini playbooks/apply-config.yml --limit <hostname>
+    ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/apply-config.yml --limit <hostname>
      ```
 
 ### Emergency Network Recovery

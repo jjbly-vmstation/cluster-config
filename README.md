@@ -28,7 +28,7 @@ cluster-config/
 ├── templates/                         # Jinja2 templates
 ├── playbooks/                         # Legacy playbooks
 ├── roles/                             # Legacy roles
-├── inventory/hosts.ini                # Legacy inventory
+├── /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml                # Canonical inventory
 └── scripts/                           # Helper scripts
 ```
 
@@ -52,12 +52,12 @@ Deploy the complete infrastructure baseline with the new playbooks:
 cd ansible
 
 # Deploy all infrastructure services
-ansible-playbook -i inventory/production/hosts.yml playbooks/site.yml
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/site.yml
 
 # Or deploy individual services
-ansible-playbook -i inventory/production/hosts.yml playbooks/ntp-sync.yml
-ansible-playbook -i inventory/production/hosts.yml playbooks/syslog-server.yml
-ansible-playbook -i inventory/production/hosts.yml playbooks/baseline-hardening.yml
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/ntp-sync.yml
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/syslog-server.yml
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/baseline-hardening.yml
 ```
 
 ### Option 2: Legacy Configuration Management
@@ -92,10 +92,10 @@ Use Ansible to enforce the desired state:
 ```bash
 # Using new playbooks (recommended)
 cd ansible
-ansible-playbook -i inventory/production/hosts.yml playbooks/site.yml
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/site.yml
 
 # Using legacy playbooks
-ansible-playbook -i inventory/hosts.ini playbooks/apply-config.yml
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/apply-config.yml
 ```
 
 ### Validate and Check Drift
@@ -103,7 +103,7 @@ ansible-playbook -i inventory/hosts.ini playbooks/apply-config.yml
 Regularly check for configuration drift:
 
 ```bash
-ansible-playbook -i inventory/hosts.ini playbooks/validate-config.yml
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/validate-config.yml
 ```
 
 Or use the standalone script:
@@ -122,7 +122,7 @@ Ensures consistent time across all cluster nodes:
 
 ```bash
 cd ansible
-ansible-playbook -i inventory/production/hosts.yml playbooks/ntp-sync.yml
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/ntp-sync.yml
 ```
 
 See [docs/TIME_SYNC_SETUP.md](docs/TIME_SYNC_SETUP.md) for detailed configuration.
@@ -133,7 +133,7 @@ Aggregates logs from all nodes to a central server:
 
 ```bash
 cd ansible
-ansible-playbook -i inventory/production/hosts.yml playbooks/syslog-server.yml
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/syslog-server.yml
 ```
 
 See [docs/SYSLOG_CONFIGURATION.md](docs/SYSLOG_CONFIGURATION.md) for detailed configuration.
@@ -144,7 +144,7 @@ Applies baseline security configurations:
 
 ```bash
 cd ansible
-ansible-playbook -i inventory/production/hosts.yml playbooks/baseline-hardening.yml
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/baseline-hardening.yml
 ```
 
 Includes:
@@ -159,7 +159,7 @@ Single sign-on authentication:
 
 ```bash
 cd ansible
-ansible-playbook -i inventory/production/hosts.yml playbooks/kerberos-setup.yml
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/kerberos-setup.yml
 ```
 
 See [docs/KERBEROS_SETUP.md](docs/KERBEROS_SETUP.md) for detailed configuration.
@@ -168,13 +168,13 @@ See [docs/KERBEROS_SETUP.md](docs/KERBEROS_SETUP.md) for detailed configuration.
 
 ```bash
 # Deploy only NTP
-ansible-playbook -i inventory/production/hosts.yml playbooks/site.yml --tags ntp
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/site.yml --tags ntp
 
 # Deploy only security hardening
-ansible-playbook -i inventory/production/hosts.yml playbooks/site.yml --tags security
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/site.yml --tags security
 
 # Skip Kerberos
-ansible-playbook -i inventory/production/hosts.yml playbooks/site.yml --skip-tags kerberos
+ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/site.yml --skip-tags kerberos
 ```
 
 ## Configuration Examples
@@ -326,7 +326,7 @@ Set up scheduled jobs to:
 1. Provision the host with base OS
 2. Run `gather-config.sh` to collect initial state
 3. Review and sanitize configurations
-4. Add to `inventory/hosts.ini`
+4. Add to /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml`
 5. Commit configurations to repository
 6. Apply desired state with `apply-config.yml`
 

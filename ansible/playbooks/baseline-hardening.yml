@@ -6,11 +6,11 @@
 #
 # Usage:
 #   Full hardening:
-#     ansible-playbook -i inventory/production/hosts.yml playbooks/baseline-hardening.yml
+#     ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/baseline-hardening.yml
 #
 #   Selective hardening:
-#     ansible-playbook -i inventory/production/hosts.yml playbooks/baseline-hardening.yml --tags ssh
-#     ansible-playbook -i inventory/production/hosts.yml playbooks/baseline-hardening.yml --tags firewall
+#     ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/baseline-hardening.yml --tags ssh
+#     ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/baseline-hardening.yml --tags firewall
 #
 # Warning:
 #   Review settings before applying to production. Some hardening may break

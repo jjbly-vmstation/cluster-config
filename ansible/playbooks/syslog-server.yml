@@ -6,10 +6,10 @@
 #
 # Usage:
 #   Deploy syslog server:
-#     ansible-playbook -i inventory/production/hosts.yml playbooks/syslog-server.yml --limit masternode
+#     ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/syslog-server.yml --limit masternode
 #
 #   Deploy syslog clients:
-#     ansible-playbook -i inventory/production/hosts.yml playbooks/syslog-server.yml
+#     ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/syslog-server.yml
 #
 # Required Variables:
 #   - syslog_server: Hostname or IP of syslog server
