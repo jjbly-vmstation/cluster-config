@@ -297,6 +297,67 @@ If SSH configuration breaks access:
    systemctl restart sshd
    ```
 
+### iDRAC Network Recovery
+
+If the iDRAC (BMC) is unresponsive on the network (cannot ping or access web/SSH):
+
+1. **Check physical connections:**
+  - Verify the network cable is securely connected to the iDRAC port and switch.
+  - Try a different cable or switch port if possible.
+2. **Validate network settings:**
+  - If you have console access, confirm iDRAC IP, subnet, and gateway are correct.
+3. **Reset the BMC:**
+  - Run:
+    ```bash
+    sudo ipmitool mc reset cold
+    ```
+  - Wait 2–3 minutes for the BMC to reboot.
+  - Monitor recovery with:
+    ```bash
+    watch -n 5 sudo ipmitool sel list
+    ```
+  - Retry pinging the iDRAC IP.
+4. **Full power cycle (if needed):**
+  - Remove AC power from the server, wait 30 seconds, then restore power.
+5. **Escalate:**
+  - If still unreachable, consult Dell documentation for forced recovery or hardware replacement.
+
+**Note:** During BMC reset, IPMI commands may fail until the controller is back online. Use `watch` to monitor SEL log and BMC recovery status.
+
+### Remote iDRAC Diagnostic Runbook
+
+When diagnosing iDRAC/BMC issues remotely via SSH, capture all relevant diagnostics and logs for offline review:
+
+1. **Capture BMC/iDRAC status and logs to files:**
+  ```bash
+  sudo ipmitool mc info > idrac_mc_info.txt
+  sudo ipmitool lan print > idrac_lan_print.txt
+  sudo ipmitool user list > idrac_user_list.txt
+  sudo ipmitool chassis status > idrac_chassis_status.txt
+  sudo ipmitool sel list > idrac_sel_list.txt
+  ```
+
+2. **Monitor SEL log in real time and save output:**
+  ```bash
+  watch -n 5 'sudo ipmitool sel list > idrac_sel_watch.txt'
+  # Or, for a timeline snapshot every minute for 10 minutes:
+  for i in {1..10}; do sudo ipmitool sel list >> idrac_sel_timeline.txt; sleep 60; done
+  ```
+
+3. **Capture network diagnostics:**
+  ```bash
+  ping -c 10 192.168.4.60 > idrac_ping.txt
+  arp -an | grep 192.168.4.60 > idrac_arp.txt
+  ```
+
+4. **If resetting the BMC, capture output:**
+  ```bash
+  sudo ipmitool mc reset cold > idrac_reset_output.txt 2>&1
+  ```
+
+5. **Review or transfer the .txt files for offline analysis.**
+
+This workflow allows full remote diagnosis and log capture for iDRAC/BMC issues without requiring physical presence at the server.
 ---
 
 ## Maintenance Schedule
