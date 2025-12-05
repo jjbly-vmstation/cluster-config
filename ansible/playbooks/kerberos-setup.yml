@@ -32,7 +32,6 @@
   vars:
     kerberos_realm: "{{ kerberos_realm | default('VMSTATION.LOCAL') }}"
     kerberos_domain: "{{ kerberos_domain | default('vmstation.local') }}"
-    kerberos_server: "{{ kerberos_server | default('masternode') }}"
     is_kerberos_server: "{{ inventory_hostname == kerberos_server }}"
 
     # Package names vary by distribution

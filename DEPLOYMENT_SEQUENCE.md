@@ -19,6 +19,7 @@ for repo in cluster-setup cluster-config cluster-cicd cluster-monitor-stack clus
 		git clone "https://github.com/$ORG/$repo.git"
 	fi
 done
+cd ..
 ```
 This ensures all required codebases are present for subsequent steps.
 
