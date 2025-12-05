@@ -24,8 +24,8 @@ This ensures all required codebases are present for subsequent steps.
 
 ## 1. Bootstrap Identity & SSO
 ```
-ansible-playbook -i vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/kerberos-setup.yml --tags server
-ansible-playbook -i vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/keycloak-setup.yml
+ansible-playbook -i cluster-setup/ansible/inventory/hosts.yml cluster-config/ansible/playbooks/kerberos-setup.yml --tags server
+ansible-playbook -i cluster-setup/ansible/inventory/hosts.yml cluster-config/ansible/playbooks/keycloak-setup.yml
 ```
 - Validate FreeIPA and Keycloak endpoints are reachable before proceeding.
 
