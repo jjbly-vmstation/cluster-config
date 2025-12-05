@@ -1,0 +1,20 @@
+---
+# FreeIPA Container Bootstrap
+- name: Pull FreeIPA container image
+  ansible.builtin.command:
+    cmd: ctr images pull quay.io/freeipa/freeipa-server:latest
+  changed_when: false
+  tags: [freeipa, sso, baseline]
+
+- name: Run FreeIPA container
+  ansible.builtin.command:
+    cmd: ctr run --detach --rm --name freeipa-server -p 389:389 -p 636:636 -p 88:88 -p 464:464 quay.io/freeipa/freeipa-server:latest /usr/sbin/init
+  changed_when: false
+  tags: [freeipa, sso, baseline]
+
+- name: Wait for FreeIPA to be reachable
+  ansible.builtin.wait_for:
+    port: 389
+    host: localhost
+    timeout: 120
+  tags: [freeipa, sso, baseline]

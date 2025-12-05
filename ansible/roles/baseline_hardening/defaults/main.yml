@@ -1,0 +1,10 @@
+---
+ssh_port: 22
+ssh_permit_root_login: prohibit-password
+ssh_password_auth: no
+ssh_permit_empty_passwords: no
+password_policy_enforce: false
+allowed_ssh_networks:
+  - 192.168.4.0/24
+  - 127.0.0.1/8
+organization_name: VMStation

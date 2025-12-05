@@ -1,0 +1,175 @@
+---
+# SSH Hardening
+- name: Ensure SSH key-based access is always available
+  tags: [ssh, security]
+  block:
+    - name: Ensure SSH configuration directory exists
+      ansible.builtin.file:
+        path: /etc/ssh/sshd_config.d
+        state: directory
+        mode: '0755'
+
+    - name: Deploy SSH hardening configuration (key-only)
+      ansible.builtin.copy:
+        content: |
+          # {{ ansible_managed | default('Managed by Ansible') }}
+          # SSH Security Hardening Configuration
+
+          Protocol 2
+          KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group-exchange-sha256
+          Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
+          MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256
+
+          # Authentication settings
+          PermitRootLogin {{ ssh_permit_root_login }}
+          PasswordAuthentication no
+          PermitEmptyPasswords no
+          PubkeyAuthentication yes
+          AuthorizedKeysFile .ssh/authorized_keys
+          MaxAuthTries 3
+          MaxSessions 10
+
+          # Disable unused features
+          X11Forwarding no
+          AllowAgentForwarding no
+          AllowTcpForwarding no
+          PermitTunnel no
+
+          # Logging
+          SyslogFacility AUTH
+          LogLevel VERBOSE
+
+          # Timeouts
+          ClientAliveInterval 300
+          ClientAliveCountMax 2
+          LoginGraceTime 60
+
+          # Banner
+          Banner /etc/issue.net
+        dest: /etc/ssh/sshd_config.d/99-hardening.conf
+        owner: root
+        group: root
+        mode: '0600'
+        validate: '/usr/sbin/sshd -t -f %s || true'
+      notify: Restart SSH
+
+    - name: Ensure correct permissions for authorized_keys
+      ansible.builtin.file:
+        path: /root/.ssh/authorized_keys
+        owner: root
+        group: root
+        mode: '0600'
+      when: ansible_user == 'root'
+
+    - name: Create login banner
+      ansible.builtin.copy:
+        content: |
+          ******************************************************************
+          *                                                                *
+          *  AUTHORIZED ACCESS ONLY                                        *
+          *                                                                *
+          *  This system is the property of {{ organization_name | default('VMStation') }}.              *
+          *  Unauthorized access is prohibited and will be prosecuted.     *
+          *  All connections are logged and monitored.                     *
+          *                                                                *
+          ******************************************************************
+        dest: /etc/issue.net
+        owner: root
+        group: root
+        mode: '0644'
+
+# Password Policy (skipped for SSH key-only)
+- name: Skip password policy enforcement (SSH key-only)
+  tags: [password, security]
+  ansible.builtin.debug:
+    msg: "Password policy enforcement skipped: SSH key-based access only."
+  when: not password_policy_enforce
+
+# Kernel Security Parameters
+- name: Configure kernel security parameters
+  tags: [sysctl, security]
+  block:
+    - name: Deploy security sysctl configuration
+      ansible.builtin.copy:
+        content: |
+          # {{ ansible_managed | default('Managed by Ansible') }}
+          # Security Kernel Parameters
+
+          # Network security
+          net.ipv4.tcp_syncookies = 1
+          net.ipv4.conf.all.accept_redirects = 0
+          net.ipv4.conf.default.accept_redirects = 0
+          net.ipv4.conf.all.secure_redirects = 0
+          net.ipv4.conf.default.secure_redirects = 0
+          net.ipv4.conf.all.send_redirects = 0
+          net.ipv4.conf.default.send_redirects = 0
+          net.ipv4.conf.all.accept_source_route = 0
+          net.ipv4.conf.default.accept_source_route = 0
+          net.ipv4.conf.all.log_martians = 1
+          net.ipv4.conf.default.log_martians = 1
+          net.ipv4.icmp_echo_ignore_broadcasts = 1
+          net.ipv4.icmp_ignore_bogus_error_responses = 1
+
+          # IPv6 settings
+          net.ipv6.conf.all.accept_redirects = 0
+          net.ipv6.conf.default.accept_redirects = 0
+          net.ipv6.conf.all.accept_source_route = 0
+          net.ipv6.conf.default.accept_source_route = 0
+
+          # Core dump restrictions
+          fs.suid_dumpable = 0
+
+          # Randomize virtual memory regions
+          kernel.randomize_va_space = 2
+
+          # Restrict kernel pointer exposure
+          kernel.kptr_restrict = 2
+
+          # Restrict dmesg access
+          kernel.dmesg_restrict = 1
+        dest: /etc/sysctl.d/99-security.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Reload sysctl
+
+# File Permissions
+- name: Secure critical file permissions
+  tags: [permissions, security]
+  block:
+    - name: Set secure permissions on critical files
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        mode: "{{ item.mode }}"
+        owner: root
+        group: root
+      loop:
+        - { path: /etc/passwd, mode: '0644' }
+        - { path: /etc/shadow, mode: '0600' }
+        - { path: /etc/group, mode: '0644' }
+        - { path: /etc/gshadow, mode: '0600' }
+        - { path: /etc/ssh/sshd_config, mode: '0600' }
+        - { path: /root/.ssh/authorized_keys, mode: '0600' }
+      failed_when: false
+
+# Audit Logging
+- name: Configure audit logging
+  tags: [audit, security]
+  block:
+    - name: Install auditd (Debian)
+      ansible.builtin.apt:
+        name: auditd
+        state: present
+      when: ansible_os_family == 'Debian'
+
+    - name: Install auditd (RedHat)
+      ansible.builtin.dnf:
+        name: audit
+        state: present
+      when: ansible_os_family == 'RedHat'
+
+    - name: Enable auditd service
+      ansible.builtin.service:
+        name: auditd
+        enabled: true
+        state: started

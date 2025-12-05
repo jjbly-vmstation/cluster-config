@@ -84,3 +84,90 @@
     cmd: sysctl --system
   changed_when: false
   tags: [sysctl]
+
+- name: Ensure ipmitool is installed (RedHat)
+  ansible.builtin.dnf:
+    name: ipmitool
+    state: present
+  when:
+    - ansible_os_family == 'RedHat'
+    - inventory_hostname == 'homelab'
+  tags: [ipmi, baseline]
+
+- name: Export IPMI metrics for monitoring (homelab)
+  when:
+    - ansible_os_family == 'RedHat'
+    - inventory_hostname == 'homelab'
+  tags: [ipmi, metrics, baseline]
+  block:
+    - name: Get IPMI sensor data
+      ansible.builtin.command:
+        cmd: ipmitool sensor
+      register: ipmi_metrics
+      changed_when: false
+      failed_when: ipmi_metrics.rc != 0
+
+    - name: Save IPMI metrics to file for syslog/Grafana
+      ansible.builtin.copy:
+        content: "{{ ipmi_metrics.stdout }}"
+        dest: /var/log/ipmi-sensors.txt
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Display IPMI metrics status
+      ansible.builtin.debug:
+        msg: |
+          IPMI metrics exported to /var/log/ipmi-sensors.txt
+          ipmitool version: {{ ipmi_metrics.stdout | regex_search('Version.*', '\n') }}
+
+- name: Ensure Dell OpenManage (OMSA) is installed (homelab)
+  when:
+    - ansible_os_family == 'RedHat'
+    - inventory_hostname == 'homelab'
+  tags: [dell, omsa, idrac, baseline]
+  block:
+    - name: Add Dell OMSA repository
+      ansible.builtin.yum_repository:
+        name: dell-omsa
+        description: Dell OpenManage Server Administrator Repository
+        baseurl: http://linux.dell.com/repo/hardware/dsu/os_independent/
+        enabled: yes
+        gpgcheck: no
+
+    - name: Install Dell OMSA (srvadmin-all)
+      ansible.builtin.dnf:
+        name: srvadmin-all
+        state: present
+
+    - name: Enable and start OMSA services
+      ansible.builtin.service:
+        name: '{{ item }}'
+        enabled: true
+        state: started
+      loop:
+        - dataeng
+        - dsm_om_connsvc
+        - dsm_om_shrsvc
+        - dsm_om_https
+
+    - name: Verify racadm and omreport are available
+      ansible.builtin.command:
+        cmd: racadm -v
+      register: racadm_version
+      changed_when: false
+      failed_when: racadm_version.rc != 0
+
+    - name: Check omreport availability
+      ansible.builtin.command:
+        cmd: omreport system summary
+      register: omreport_summary
+      changed_when: false
+      failed_when: omreport_summary.rc != 0
+
+    - name: Display OMSA install status
+      ansible.builtin.debug:
+        msg: |
+          Dell OMSA installed and services running.
+          racadm version: {{ racadm_version.stdout }}
+          omreport summary: {{ omreport_summary.stdout }}
