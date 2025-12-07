@@ -2,7 +2,7 @@
 # Keycloak Bootstrap Playbook
 # Deploys and configures Keycloak for SSO integration
 
--- name: Bootstrap Keycloak SSO
+- name: Bootstrap Keycloak SSO
   hosts: masternode
   become: true
   gather_facts: true
@@ -14,12 +14,12 @@
       # keycloak_admin_password: "{{ vault_keycloak_admin_password }}"
       # keycloak_freeipa_ldap_url: "ldap://freeipa.example.local"
 
-  vars:
-    # Example: set variables or import from group_vars/host_vars
-    # keycloak_admin_user: "admin"
-    # keycloak_admin_password: "{{ vault_keycloak_admin_password }}"
+    - vars:
+      # Example: set variables or import from group_vars/host_vars
+      # keycloak_admin_user: "admin"
+      # keycloak_admin_password: "{{ vault_keycloak_admin_password }}"
 
-  tasks:
-    - name: Display Keycloak endpoint
-      ansible.builtin.debug:
-        msg: "Keycloak SSO should now be available. Validate integration with FreeIPA LDAP."
+    - tasks:
+      - name: Display Keycloak endpoint
+        ansible.builtin.debug:
+          msg: "Keycloak SSO should now be available. Validate integration with FreeIPA LDAP."
