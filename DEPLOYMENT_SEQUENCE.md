@@ -27,14 +27,20 @@ This ensures all required codebases are present for subsequent steps.
 **Important:**
 For each deployment phase, always change directory (`cd`) into the relevant repo before running Ansible commands. This ensures the correct `ansible.cfg`, inventory, and roles are used for that phase.
 
-**Example (Bootstrap Phase):**
+**Example (Bootstrap Phase - Kubespray-first workflow):**
 ```
-cd /opt/vmstation-org/cluster-setup
-ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/pre-generate-certs.yml
+# Prepare and run Kubespray to perform host preparation and cluster bring-up (recommended for mixed OS clusters)
+cd /opt/vmstation-org/cluster-infra/kubespray
+# copy the sample inventory and create your cluster inventory (follow Kubespray docs to populate group_vars)
+cp -r inventory/sample inventory/mycluster
+# Edit `inventory/mycluster/hosts.yaml` to match the hosts defined in `cluster-setup/ansible/inventory/hosts.yml`
+# Then run the Kubespray playbook (become/root privileges required):
+ansible-playbook -i inventory/mycluster/hosts.yaml cluster.yml -b --become-user=root
 
-# After control-plane bootstrap and kubeconfig availability, deploy identity stack
+# After Kubespray completes and kubeconfig is available, run the identity handover to import any CA material
+# and create cert-manager ClusterIssuers. Run this from the `cluster-infra` repo where its ansible.cfg is defined:
 cd /opt/vmstation-org/cluster-infra
-ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/setup-identity-stack.yml
+ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/identity-handover.yml
 ```
 - Validate FreeIPA and Keycloak endpoints are reachable before proceeding.
 
@@ -46,43 +52,28 @@ If you see `the role 'keycloak' was not found`, make sure you are running from t
 ansible-playbook -i vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/baseline-hardening.yml
 ```
 
-## 1.5 Pre-generate Kubernetes bootstrap certificates (new)
+## 1.5 Cluster bring-up and identity handover (Kubespray recommended)
 
-Before bringing up the control plane, pre-generate the certificates needed to bootstrap Kubernetes so that ephemeral, unorchestrated pods are not required during early cluster bring-up. This pre-generation lives in the `cluster-setup` repo to keep early bootstrap responsibilities co-located with other host-level boot tasks.
+For mixed-OS clusters (for example, with RHEL10 nodes) we recommend using Kubespray to perform host preparation and to bring up the full cluster. The older pre-generate/bootstrap playbooks have been removed in favor of this workflow.
 
-Recommendation:
+Recommendation (high level):
 ```
-cd /opt/vmstation-org/cluster-setup
-ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/pre-generate-certs.yml
+# Run Kubespray from the `cluster-infra/kubespray` directory and target an inventory derived
+# from `cluster-setup/ansible/inventory/hosts.yml`.
+cd /opt/vmstation-org/cluster-infra/kubespray
+cp -r inventory/sample inventory/mycluster
+# Edit inventory/mycluster/hosts.yaml to match your hosts and required group_vars
+ansible-playbook -i inventory/mycluster/hosts.yaml cluster.yml -b --become-user=root
+
+# After the cluster is healthy and kubeconfig is available, run the identity handover
+cd /opt/vmstation-org/cluster-infra
+ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/identity-handover.yml
 ```
 
 Notes:
-- The playbook will generate a tarball under `cluster-setup/scripts/certs.tar.gz` containing a CA and sample server/client certs.
-- After your secret store (Vault, S3, Kubernetes Secret store) is available, import the artifacts and update `ansible/roles/cert-bootstrap` to automate distribution.
-
-Bootstrap guidance (using pre-generated certs)
--------------------------------------------
-
-The intended flow when you do not yet have an in-cluster secret store is:
-
-1. Pre-generate a CA and the initial control-plane certificates using `cluster-setup/scripts/generate_certs.sh` (via the playbook above).
-2. Copy the generated certs to the control-plane host(s) and place them where your bootstrap process expects them (for kubeadm this is `/etc/kubernetes/pki`). Example using `scp`/`rsync`:
-
-```bash
-# from the deployment host where certs were generated
-scp cluster-setup/scripts/certs/* root@<control-plane-host>:/etc/kubernetes/pki/
-```
-
-3. Run your cluster bootstrap (kubeadm or equivalent) using the pre-provisioned certs. For `kubeadm` you can either place the cert files into `/etc/kubernetes/pki` before `kubeadm init`, or use a kubeadm `ClusterConfiguration` that references your cert files.
-
-4. Once the control-plane is healthy and pods can be scheduled, deploy the identity stack inside the cluster using `cluster-infra` (FreeIPA + Keycloak). The identity stack will run as in-cluster services (pods) and will be able to act as the long-term CA / identity provider.
-
-5. After FreeIPA is deployed, configure `cert-manager` (deployed in-cluster) with a `ClusterIssuer` that points to FreeIPA's CA/signing API (or import the bootstrap CA into FreeIPA and configure `cert-manager` to use that CA). From this point forward, certificate issuance and rotation can be handled by `cert-manager` + FreeIPA and you can retire manual certificate distribution.
-
-Notes and cautions:
-- Ensure private keys are transferred over a secure channel (scp/rsync over SSH) and removed from temporary locations after use.
-- The pre-generated certs are intended to bootstrap the cluster only; production usage should rely on `cert-manager` or another managed PKI for rotation and revocation.
-- If you prefer Vault as the long-term secret store instead of FreeIPA, adapt the `cluster-infra` playbooks and roles accordingly.
+- Kubespray includes host prep and OS-specific adjustments; ensure the RHEL10 node(s) meet the Kubespray prerequisites (python3, sudo, required packages, swap disabled, appropriate kernel params and SELinux config if needed).
+- The identity handover playbook imports the chosen CA material into the cluster (as a Secret) and applies a `ClusterIssuer` for `cert-manager`.
+- If you prefer a different long-term secret store (Vault, external PKI), adapt the `cluster-infra` playbooks accordingly.
 
 
 
