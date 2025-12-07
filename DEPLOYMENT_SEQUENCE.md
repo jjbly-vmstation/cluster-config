@@ -29,9 +29,12 @@ For each deployment phase, always change directory (`cd`) into the relevant repo
 
 **Example (Bootstrap Phase):**
 ```
-cd /opt/vmstation-org/cluster-setup/ansible
-ansible-playbook -i inventory/hosts.yml -l masternode ../../cluster-config/ansible/playbooks/kerberos-setup.yml --tags server
-ansible-playbook -i inventory/hosts.yml -l masternode ../../cluster-config/ansible/playbooks/keycloak-setup.yml
+cd /opt/vmstation-org/cluster-setup
+ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/pre-generate-certs.yml
+
+# After control-plane bootstrap and kubeconfig availability, deploy identity stack
+cd /opt/vmstation-org/cluster-infra
+ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/setup-identity-stack.yml
 ```
 - Validate FreeIPA and Keycloak endpoints are reachable before proceeding.
 
@@ -42,6 +45,46 @@ If you see `the role 'keycloak' was not found`, make sure you are running from t
 ```
 ansible-playbook -i vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/baseline-hardening.yml
 ```
+
+## 1.5 Pre-generate Kubernetes bootstrap certificates (new)
+
+Before bringing up the control plane, pre-generate the certificates needed to bootstrap Kubernetes so that ephemeral, unorchestrated pods are not required during early cluster bring-up. This pre-generation lives in the `cluster-setup` repo to keep early bootstrap responsibilities co-located with other host-level boot tasks.
+
+Recommendation:
+```
+cd /opt/vmstation-org/cluster-setup
+ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/pre-generate-certs.yml
+```
+
+Notes:
+- The playbook will generate a tarball under `cluster-setup/scripts/certs.tar.gz` containing a CA and sample server/client certs.
+- After your secret store (Vault, S3, Kubernetes Secret store) is available, import the artifacts and update `ansible/roles/cert-bootstrap` to automate distribution.
+
+Bootstrap guidance (using pre-generated certs)
+-------------------------------------------
+
+The intended flow when you do not yet have an in-cluster secret store is:
+
+1. Pre-generate a CA and the initial control-plane certificates using `cluster-setup/scripts/generate_certs.sh` (via the playbook above).
+2. Copy the generated certs to the control-plane host(s) and place them where your bootstrap process expects them (for kubeadm this is `/etc/kubernetes/pki`). Example using `scp`/`rsync`:
+
+```bash
+# from the deployment host where certs were generated
+scp cluster-setup/scripts/certs/* root@<control-plane-host>:/etc/kubernetes/pki/
+```
+
+3. Run your cluster bootstrap (kubeadm or equivalent) using the pre-provisioned certs. For `kubeadm` you can either place the cert files into `/etc/kubernetes/pki` before `kubeadm init`, or use a kubeadm `ClusterConfiguration` that references your cert files.
+
+4. Once the control-plane is healthy and pods can be scheduled, deploy the identity stack inside the cluster using `cluster-infra` (FreeIPA + Keycloak). The identity stack will run as in-cluster services (pods) and will be able to act as the long-term CA / identity provider.
+
+5. After FreeIPA is deployed, configure `cert-manager` (deployed in-cluster) with a `ClusterIssuer` that points to FreeIPA's CA/signing API (or import the bootstrap CA into FreeIPA and configure `cert-manager` to use that CA). From this point forward, certificate issuance and rotation can be handled by `cert-manager` + FreeIPA and you can retire manual certificate distribution.
+
+Notes and cautions:
+- Ensure private keys are transferred over a secure channel (scp/rsync over SSH) and removed from temporary locations after use.
+- The pre-generated certs are intended to bootstrap the cluster only; production usage should rely on `cert-manager` or another managed PKI for rotation and revocation.
+- If you prefer Vault as the long-term secret store instead of FreeIPA, adapt the `cluster-infra` playbooks and roles accordingly.
+
+
 
 ## 3. Infrastructure Services
 ```
