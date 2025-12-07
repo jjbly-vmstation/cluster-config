@@ -24,7 +24,9 @@ cd ..
 This ensures all required codebases are present for subsequent steps.
 
 ## 1. Bootstrap Identity & SSO
+**Important:** Run all playbooks from `/opt/vmstation-org` so Ansible can find all roles (roles_path).
 ```
+cd /opt/vmstation-org
 ansible-playbook -i cluster-setup/ansible/inventory/hosts.yml -l masternode cluster-config/ansible/playbooks/kerberos-setup.yml --tags server
 ansible-playbook -i cluster-setup/ansible/inventory/hosts.yml -l masternode cluster-config/ansible/playbooks/keycloak-setup.yml
 ```

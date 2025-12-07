@@ -30,10 +30,9 @@
   gather_facts: true
 
   vars:
-    kerberos_server: "{{ kerberos_server | default('masternode') }}"
     kerberos_realm: "{{ kerberos_realm | default('VMSTATION.LOCAL') }}"
     kerberos_domain: "{{ kerberos_domain | default('vmstation.local') }}"
-    is_kerberos_server: "{{ inventory_hostname == kerberos_server }}"
+    is_kerberos_server: "{{ inventory_hostname == (kerberos_server | default('masternode')) }}"
 
     # Package names vary by distribution
     kerberos_client_packages_debian:
