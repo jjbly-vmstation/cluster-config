@@ -2,8 +2,8 @@
 # Keycloak Bootstrap Playbook
 # Deploys and configures Keycloak for SSO integration
 
-- name: Bootstrap Keycloak SSO
-  hosts: keycloak
+-- name: Bootstrap Keycloak SSO
+  hosts: masternode
   become: true
   gather_facts: true
 
