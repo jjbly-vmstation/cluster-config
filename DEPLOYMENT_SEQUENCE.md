@@ -30,12 +30,15 @@ For each deployment phase, always change directory (`cd`) into the relevant repo
 **Example (Bootstrap Phase - Kubespray-first workflow):**
 ```
 # Prepare and run Kubespray to perform host preparation and cluster bring-up (recommended for mixed OS clusters)
+cd /opt/vmstation-org/cluster-infra
+# Maintain a canonical Kubespray inventory in this repo (outside the Kubespray submodule):
+# Copy the canonical inventory from `cluster-setup` to `cluster-infra/inventory/mycluster/hosts.yaml` if you need to refresh it,
+# or edit `cluster-infra/inventory/mycluster/hosts.yaml` directly on the masternode.
+# Then run Kubespray pointing to the external inventory file. This avoids modifying the Kubespray submodule itself.
+
 cd /opt/vmstation-org/cluster-infra/kubespray
-# copy the sample inventory and create your cluster inventory (follow Kubespray docs to populate group_vars)
-cp -r inventory/sample inventory/mycluster
-# Edit `inventory/mycluster/hosts.yaml` to match the hosts defined in `cluster-setup/ansible/inventory/hosts.yml`
-# Then run the Kubespray playbook (become/root privileges required):
-ansible-playbook -i inventory/mycluster/hosts.yaml cluster.yml -b --become-user=root
+# Example: run Kubespray with the external inventory file
+ansible-playbook -i /opt/vmstation-org/cluster-infra/inventory/mycluster/hosts.yaml cluster.yml -b --become-user=root
 
 # After Kubespray completes and kubeconfig is available, run the identity handover to import any CA material
 # and create cert-manager ClusterIssuers. Run this from the `cluster-infra` repo where its ansible.cfg is defined:
