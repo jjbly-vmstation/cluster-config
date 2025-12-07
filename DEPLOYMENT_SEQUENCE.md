@@ -24,13 +24,19 @@ cd ..
 This ensures all required codebases are present for subsequent steps.
 
 ## 1. Bootstrap Identity & SSO
-**Important:** Run all playbooks from `/opt/vmstation-org` so Ansible can find all roles (roles_path).
+**Important:**
+For each deployment phase, always change directory (`cd`) into the relevant repo before running Ansible commands. This ensures the correct `ansible.cfg`, inventory, and roles are used for that phase.
+
+**Example (Bootstrap Phase):**
 ```
-cd /opt/vmstation-org
-ansible-playbook -i cluster-setup/ansible/inventory/hosts.yml -l masternode cluster-config/ansible/playbooks/kerberos-setup.yml --tags server
-ansible-playbook -i cluster-setup/ansible/inventory/hosts.yml -l masternode cluster-config/ansible/playbooks/keycloak-setup.yml
+cd /opt/vmstation-org/cluster-setup/ansible
+ansible-playbook -i inventory/hosts.yml -l masternode ../../cluster-config/ansible/playbooks/kerberos-setup.yml --tags server
+ansible-playbook -i inventory/hosts.yml -l masternode ../../cluster-config/ansible/playbooks/keycloak-setup.yml
 ```
 - Validate FreeIPA and Keycloak endpoints are reachable before proceeding.
+
+**Troubleshooting:**
+If you see `the role 'keycloak' was not found`, make sure you are running from the correct repo directory (where the intended `ansible.cfg` is located). This ensures Ansible uses the correct roles_path and settings for each phase.
 
 ## 2. Enforce Baseline OS Configuration
 ```
