@@ -6,9 +6,10 @@
   changed_when: false
   tags: [keycloak, sso, baseline]
 
-- name: Run Keycloak container
+- name: Run Keycloak container (host networking, correct ctr syntax)
   ansible.builtin.command:
-    cmd: ctr run --detach --rm --name keycloak-server -p 8080:8080 quay.io/keycloak/keycloak:latest /opt/keycloak/bin/kc.sh start-dev
+    # ctr does not support --name or -p; use host networking and positional name
+    cmd: ctr run --detach --net-host quay.io/keycloak/keycloak:latest keycloak-server /opt/keycloak/bin/kc.sh start-dev
   changed_when: false
   tags: [keycloak, sso, baseline]
 
