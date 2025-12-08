@@ -4,7 +4,7 @@ This file documents the recommended order and commands for deploying the full st
 
 ## 0. Workspace Preparation
 Clone all required organization repositories into `/opt/vmstation-org` on your deployment host:
-```
+```sh
 ORG="jjbly-vmstation"
 TARGET="/opt/vmstation-org"
 sudo mkdir -p "$TARGET"
@@ -28,7 +28,7 @@ This ensures all required codebases are present for subsequent steps.
 For each deployment phase, always change directory (`cd`) into the relevant repo before running Ansible commands. This ensures the correct `ansible.cfg`, inventory, and roles are used for that phase.
 
 **Example (Bootstrap Phase - Kubespray-first workflow):**
-```
+```sh
 # Prepare and run Kubespray to perform host preparation and cluster bring-up (recommended for mixed OS clusters)
 cd /opt/vmstation-org/cluster-infra
 # Maintain a canonical Kubespray inventory in this repo (outside the Kubespray submodule):
@@ -51,7 +51,7 @@ ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/identity-hando
 If you see `the role 'keycloak' was not found`, make sure you are running from the correct repo directory (where the intended `ansible.cfg` is located). This ensures Ansible uses the correct roles_path and settings for each phase.
 
 ## 2. Enforce Baseline OS Configuration
-```
+```sh
 ansible-playbook -i vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/baseline-hardening.yml
 ```
 
@@ -59,19 +59,7 @@ ansible-playbook -i vmstation-org/cluster-setup/ansible/inventory/hosts.yml play
 
 For mixed-OS clusters (for example, with RHEL10 nodes) we recommend using Kubespray to perform host preparation and to bring up the full cluster. The older pre-generate/bootstrap playbooks have been removed in favor of this workflow.
 
-Recommendation (high level):
-```
-# Run Kubespray from the `cluster-infra/kubespray` directory and target an inventory derived
-# from `cluster-setup/ansible/inventory/hosts.yml`.
-cd /opt/vmstation-org/cluster-infra/kubespray
-cp -r inventory/sample inventory/mycluster
-# Edit inventory/mycluster/hosts.yaml to match your hosts and required group_vars
-ansible-playbook -i inventory/mycluster/hosts.yaml cluster.yml -b --become-user=root
-
-# After the cluster is healthy and kubeconfig is available, run the identity handover
-cd /opt/vmstation-org/cluster-infra
-ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/identity-handover.yml
-```
+See the **Bootstrap Phase** example above for the exact Kubespray invocation and the recommended external inventory location (`cluster-infra/inventory/mycluster/hosts.yaml`).
 
 Notes:
 - Kubespray includes host prep and OS-specific adjustments; ensure the RHEL10 node(s) meet the Kubespray prerequisites (python3, sudo, required packages, swap disabled, appropriate kernel params and SELinux config if needed).
@@ -81,24 +69,24 @@ Notes:
 
 
 ## 3. Infrastructure Services
-```
+```sh
 ansible-playbook -i vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/infrastructure-services.yml
 ```
 
 ## 4. Baseline Validation
-```
+```sh
 ./scripts/check-drift.sh
 ./scripts/gather-config.sh
 ansible-playbook -i vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/preflight-checks.yml
 ```
 
 ## 5. Cluster Deployment
-```
+```sh
 ansible-playbook -i vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/deploy-cluster.yml
 ```
 
 ## 6. Monitoring & Stack Deployment
-```
+```sh
 ansible-playbook -i vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/deploy-monitoring-stack.yml
 ```
 
@@ -111,7 +99,9 @@ ansible-playbook -i vmstation-org/cluster-setup/ansible/inventory/hosts.yml play
 - Run post-deploy scripts and document outputs
 
 
-Canonical inventory location used in all commands:
+Canonical inventory location - Source of Truth:
 `vmstation-org/cluster-setup/ansible/inventory/hosts.yml`
+Canonical kubespray inventory location used in kubespray commands: 
+`/opt/vmstation-org/cluster-infra/inventory/mycluster/hosts.yaml`
 
 This sequence ensures all dependencies are satisfied and the stack is secure, maintainable, and ready for CI/CD automation.
