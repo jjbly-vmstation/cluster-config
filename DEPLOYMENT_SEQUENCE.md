@@ -5,6 +5,7 @@ This file documents the recommended order and commands for deploying the full st
 ## 0. Workspace Preparation
 Clone all required organization repositories into `/opt/vmstation-org` on your deployment host:
 ```sh
+
 ORG="jjbly-vmstation"
 TARGET="/opt/vmstation-org"
 sudo mkdir -p "$TARGET"
@@ -19,7 +20,7 @@ for repo in cluster-setup cluster-config cluster-cicd cluster-monitor-stack clus
 		git clone "https://github.com/$ORG/$repo.git"
 	fi
 done
-cd ..
+
 ```
 This ensures all required codebases are present for subsequent steps.
 
@@ -38,56 +39,153 @@ cd /opt/vmstation-org/cluster-infra
 
 cd /opt/vmstation-org/cluster-infra/kubespray
 # Example: run Kubespray with the external inventory file
-ansible-playbook -i /opt/vmstation-org/cluster-infra/inventory/mycluster/hosts.yaml cluster.yml -b --become-user=root
+# Prerequisite: ensure the correct Ansible version is available before running
+# (run these steps once per masternode or in CI prior to invoking the playbook)
+```sh
+# Use an isolated virtualenv and install ansible-core in the required range
+python3 -m venv ~/.venv/kubespray-ansible
+source ~/.venv/kubespray-ansible/bin/activate
+python -m pip install --upgrade pip setuptools wheel
+pip install "ansible-core>=2.17.3,<2.18.0"
 
-# After Kubespray completes and kubeconfig is available, run the identity handover to import any CA material
-# and create cert-manager ClusterIssuers. Run this from the `cluster-infra` repo where its ansible.cfg is defined:
-cd /opt/vmstation-org/cluster-infra
-ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/identity-handover.yml
+# Install Kubespray Python requirements from the cloned repo
+cd /opt/vmstation-org/cluster-infra/kubespray
+pip install -r requirements.txt
+
+# Verify ansible-playbook is the one from the venv
+ansible-playbook --version
+
+# Fail-fast: ensure ansible-core 2.17.x is active (helpful reminder to activate venv)
+if ! ansible-playbook --version 2>/dev/null | grep -q -E 'core 2\.17'; then
+	echo "ERROR: ansible-playbook does not appear to be ansible-core 2.17.x"
+	echo "Activate the virtualenv and retry: source ~/.venv/kubespray-ansible/bin/activate"
+	exit 1
+fi
+
+# Then run the Kubespray playbook (inside the activated venv)
+ansible-playbook -i /opt/vmstation-org/cluster-infra/inventory/mycluster/hosts.yaml cluster.yml -b --become-user=root
 ```
+
+<!-- Operational convenience: one-time clone + transient symlink example -->
+
+```sh
+
+# One-time: clone the official Kubespray repo (only needed once per masternode)
+git clone https://github.com/kubernetes-sigs/kubespray.git /opt/vmstation-org/cluster-infra/kubespray
+
+# Transient symlink approach (convenient, do NOT commit this symlink into the submodule)
+mkdir -p /opt/vmstation-org/cluster-infra/kubespray/inventory
+ln -s /opt/vmstation-org/cluster-infra/inventory/mycluster /opt/vmstation-org/cluster-infra/kubespray/inventory/mycluster
+
+# Run Kubespray using the repo-local inventory path (then remove the symlink)
+cd /opt/vmstation-org/cluster-infra/kubespray
+ansible-playbook -i inventory/mycluster/hosts.yaml cluster.yml -b --become-user=root
+rm -f /opt/vmstation-org/cluster-infra/kubespray/inventory/mycluster
+
+
+```
+
+
+<!-- First step is to create a password for keycloak services -->
+```sh
+
+sudo mkdir -p /opt/vmstation-org/cluster-infra/helm
+sudo cp /opt/vmstation-org/cluster-infra/helm/keycloak-values.example.yaml /opt/vmstation-org/cluster-infra/helm/keycloak-values.yaml
+sudo chown $(id -u):$(id -g) /opt/vmstation-org/cluster-infra/helm/keycloak-values.yaml
+# Edit and replace placeholders (admin password, LDAP bind password, etc.)
+
+cd /opt/vmstation-org/cluster-infra/ansible
+# Usage
+sudo ../scripts/cleanup-identity-stack.sh
+sudo ansible-playbook -i /opt/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/identity-deploy-and-handover.yml --become
+	# \ -e identity_force_replace=true
+
+
+
+```
+Usages:
+
+# Default behavior: auto-generate CA if needed
+```sh
+ansible-playbook ansible/playbooks/identity-deploy-and-handover.yml
+```
+# Disable CA auto-generation (requires manual CA provisioning)
+```sh
+ansible-playbook ansible/playbooks/identity-deploy-and-handover.yml -e identity_generate_ca=false
+```
+# Use existing CA files (place at /opt/vmstation-org/cluster-setup/scripts/certs/)
+```sh
+ansible-playbook ansible/playbooks/identity-deploy-and-handover.yml
+```
+
+Note: `enable_postgres_chown` is enabled by default. The playbook will attempt
+to repair hostPath ownership for PostgreSQL during the replace flow, so you do
+not normally need to pass `-e enable_postgres_chown=true` explicitly.
+
 - Validate FreeIPA and Keycloak endpoints are reachable before proceeding.
 
-**Troubleshooting:**
-If you see `the role 'keycloak' was not found`, make sure you are running from the correct repo directory (where the intended `ansible.cfg` is located). This ensures Ansible uses the correct roles_path and settings for each phase.
 
 ## 2. Enforce Baseline OS Configuration
 ```sh
-ansible-playbook -i vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/baseline-hardening.yml
+# Run from the `cluster-setup` repo root so its `ansible.cfg` and role paths are used
+cd /opt/vmstation-org/cluster-setup
+sudo ansible-playbook -i ansible/inventory/hosts.yml playbooks/baseline-hardening.yml --become
 ```
-
-## 1.5 Cluster bring-up and identity handover (Kubespray recommended)
-
-For mixed-OS clusters (for example, with RHEL10 nodes) we recommend using Kubespray to perform host preparation and to bring up the full cluster. The older pre-generate/bootstrap playbooks have been removed in favor of this workflow.
-
-See the **Bootstrap Phase** example above for the exact Kubespray invocation and the recommended external inventory location (`cluster-infra/inventory/mycluster/hosts.yaml`).
-
-Notes:
-- Kubespray includes host prep and OS-specific adjustments; ensure the RHEL10 node(s) meet the Kubespray prerequisites (python3, sudo, required packages, swap disabled, appropriate kernel params and SELinux config if needed).
-- The identity handover playbook imports the chosen CA material into the cluster (as a Secret) and applies a `ClusterIssuer` for `cert-manager`.
-- If you prefer a different long-term secret store (Vault, external PKI), adapt the `cluster-infra` playbooks accordingly.
-
 
 
 ## 3. Infrastructure Services
 ```sh
-ansible-playbook -i vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/infrastructure-services.yml
+cd /opt/vmstation-org/cluster-setup
+sudo ansible-playbook -i ansible/inventory/hosts.yml playbooks/infrastructure-services.yml --become
 ```
 
 ## 4. Baseline Validation
+
 ```sh
+cd /opt/vmstation-org/cluster-setup
 ./scripts/check-drift.sh
 ./scripts/gather-config.sh
-ansible-playbook -i vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/preflight-checks.yml
+sudo ansible-playbook -i ansible/inventory/hosts.yml playbooks/preflight-checks.yml --become
 ```
+
+## 4a. Configure DNS Records and Network Ports for FreeIPA/Keycloak
+
+**Before deploying infrastructure services, ensure the following:**
+
+- **DNS Records:**
+	- Add all records listed in `/tmp/ipa.system.records.*.db` from the FreeIPA pod to your DNS system.
+		- Example:
+			```sh
+			kubectl exec -n identity freeipa-0 -- cat /tmp/ipa.system.records.*.db
+			```
+	- Ensure `ipa.vmstation.local` and any other required hostnames resolve correctly from all cluster nodes and clients.
+
+- **Firewall/Network Ports:**
+	- The following ports must be open between cluster nodes, FreeIPA, Keycloak, and clients as appropriate:
+		- **TCP:** 22 (SSH, must always be open), 80, 443 (HTTP/HTTPS), 389, 636 (LDAP/LDAPS), 88, 464 (Kerberos), 53 (DNS if used)
+		- **UDP:** 88, 464 (Kerberos), 53 (DNS if used)
+	- SSH (port 22) must remain open and unrestricted for all cluster nodes at all times.
+	- If your baseline hardening or infrastructure playbooks manage firewall rules, ensure these ports are explicitly allowed.
+
+- **FreeIPA/Keycloak Readiness:**
+	- Confirm FreeIPA and Keycloak pods are READY (1/1) and running before proceeding.
+	- Access the FreeIPA web UI at https://ipa.vmstation.local/ipa/ui to verify login works.
+	- Optionally, test Kerberos with `kinit admin` from a client.
+
+---
+
+Continue with infrastructure services deployment after these checks.
 
 ## 5. Cluster Deployment
 ```sh
-ansible-playbook -i vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/deploy-cluster.yml
+cd /opt/vmstation-org/cluster-setup
+sudo ansible-playbook -i ansible/inventory/hosts.yml playbooks/deploy-cluster.yml --become
 ```
 
 ## 6. Monitoring & Stack Deployment
 ```sh
-ansible-playbook -i vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/deploy-monitoring-stack.yml
+cd /opt/vmstation-org/cluster-setup
+sudo ansible-playbook -i ansible/inventory/hosts.yml playbooks/deploy-monitoring-stack.yml --become
 ```
 
 ## 7. Integrate cert-manager with FreeIPA CA
@@ -105,3 +203,16 @@ Canonical kubespray inventory location used in kubespray commands:
 `/opt/vmstation-org/cluster-infra/inventory/mycluster/hosts.yaml`
 
 This sequence ensures all dependencies are satisfied and the stack is secure, maintainable, and ready for CI/CD automation.
+
+
+
+## 20. Cluster reset 
+
+
+``` sh
+cd /opt/vmstation-org/cluster-infra
+sudo ansible-playbook -i /opt/vmstation-org/cluster-infra/inventory/mycluster/ ansible/playbooks/reset-cluster.yaml --become
+
+# Optional
+	-e reset_remove_containerd_state=true
+```
