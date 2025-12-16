@@ -81,8 +81,39 @@ ln -s /opt/vmstation-org/cluster-infra/inventory/mycluster /opt/vmstation-org/cl
 cd /opt/vmstation-org/cluster-infra/kubespray
 ansible-playbook -i inventory/mycluster/hosts.yaml cluster.yml -b --become-user=root
 rm -f /opt/vmstation-org/cluster-infra/kubespray/inventory/mycluster
+```
 
+## 2. RHEL Registration & Repository Enablement (RHEL/Rocky/AlmaLinux nodes)
 
+> **Important for RHEL-family nodes:**
+> Before running baseline-hardening, you must register your RHEL system and enable required repositories. This ensures all dependencies (such as `htop` and `libhwloc.so.15`) are available. If these steps are skipped, the playbook will fail on RHEL nodes.
+
+**Register your RHEL system:**
+```sh
+sudo subscription-manager register
+# Enter your Red Hat credentials when prompted
+```
+
+**Enable required repositories:**
+```sh
+# Enable base, extras, and CodeReady Builder (for RHEL 8+)
+sudo subscription-manager repos --enable "codeready-builder-for-rhel-8-$(arch)-rpms"
+sudo dnf install -y epel-release
+```
+
+**If you encounter errors about missing `libhwloc.so.15` or `htop`:**
+> - Ensure CodeReady Builder and EPEL are enabled.
+> - You may need to manually install `libhwloc` or `htop` if not available via dnf.
+> - See RHEL documentation for troubleshooting repository access.
+
+---
+
+## 3. Enforce Baseline OS Configuration
+
+```sh
+# Run from the `cluster-setup` repo root so its `ansible.cfg` and role paths are used
+cd /opt/vmstation-org/cluster-setup
+sudo ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/baseline-hardening.yml --become
 ```
 
 
@@ -125,19 +156,28 @@ not normally need to pass `-e enable_postgres_chown=true` explicitly.
 - Validate FreeIPA and Keycloak endpoints are reachable before proceeding.
 
 
+<!-- COMPLETED DEPLOYMENT AND TESTING UPTO HERE -->
+
+
 ## 2. Enforce Baseline OS Configuration
+
+> **Note for RHEL/Rocky/AlmaLinux nodes:**
+> The baseline-hardening playbook installs `htop` as a base package. On some RHEL-family systems, `htop` requires the library `libhwloc.so.15` (or similar). If this library is not available in your enabled repositories, you may need to manually install it or enable the appropriate repository (such as EPEL or PowerTools) before running the playbook. If the dependency is missing, the playbook will fail on that node.
+
 ```sh
 # Run from the `cluster-setup` repo root so its `ansible.cfg` and role paths are used
 cd /opt/vmstation-org/cluster-setup
-sudo ansible-playbook -i ansible/inventory/hosts.yml playbooks/baseline-hardening.yml --become
+sudo ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/baseline-hardening.yml --become
 ```
 
 
 ## 3. Infrastructure Services
 ```sh
 cd /opt/vmstation-org/cluster-setup
-sudo ansible-playbook -i ansible/inventory/hosts.yml playbooks/infrastructure-services.yml --become
+sudo ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/infrastructure-services.yml --become
 ```
+# note: Installed helm, and python 2.16 intepreter manually on the homelab node, unsure of what caused these issues.
+
 
 ## 4. Baseline Validation
 
@@ -172,17 +212,44 @@ sudo ansible-playbook -i ansible/inventory/hosts.yml playbooks/preflight-checks.
 	- Access the FreeIPA web UI at https://ipa.vmstation.local/ipa/ui to verify login works.
 	- Optionally, test Kerberos with `kinit admin` from a client.
 
+
+# Quick automated deployment
+# Automated
+cd /opt/vmstation-org/cluster-setup/ansible
+ansible-playbook -i /opt/vmstation-org/cluster-setup/ansible/inventory/hosts.yml \
+  /opt/vmstation-org/cluster-infra/ansible/playbooks/configure-dns-network-step4a.yml
+  
+	# Or run individual scripts
+	./scripts/extract-freeipa-dns-records.sh
+	./scripts/configure-dns-records.sh
+	./scripts/configure-network-ports.sh
+	./scripts/verify-freeipa-keycloak-readiness.sh
+
+sudo apt update
+sudo apt install ldap-utils krb5-user
+
 ---
 
 Continue with infrastructure services deployment after these checks.
 
 ## 5. Cluster Deployment
 ```sh
-cd /opt/vmstation-org/cluster-setup
-sudo ansible-playbook -i ansible/inventory/hosts.yml playbooks/deploy-cluster.yml --become
+cd /opt/vmstation-org/cluster-infra
+sudo ansible-playbook -i /opt/vmstation-org/cluster-setup/ansible/inventory/hosts.yml ansible/playbooks/deploy-cluster.yaml --become -e "kubernetes_version=1.29"
 ```
 
+
+**Reminder:**
+After deploying CoreDNS, monitoring, and cluster services, always validate that all identity and SSO endpoints are working:
+- FreeIPA web UI and LDAP (https://ipa.vmstation.local/ipa/ui, ldap://ipa.vmstation.local)
+- Keycloak web UI and SSO login
+- Kerberos (kinit admin)
+- Any other LDAP/SSO-integrated services
+
+This ensures that DNS, authentication, and identity integrations are functional before moving to workload or application deployment.
+
 ## 6. Monitoring & Stack Deployment
+
 ```sh
 cd /opt/vmstation-org/cluster-setup
 sudo ansible-playbook -i ansible/inventory/hosts.yml playbooks/deploy-monitoring-stack.yml --become
