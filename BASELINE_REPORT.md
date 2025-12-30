@@ -442,7 +442,7 @@ hosts/homelab/
 
 1. **Initialize git repository**:
    ```bash
-   cd /srv/monitoring_data/VMStation/machine-config-repo
+   cd /opt/vmstation_org/machine-config-repo
    git init
    git add .
    git commit -m "Initial baseline configuration for VMStation cluster"

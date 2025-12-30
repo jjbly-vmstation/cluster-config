@@ -117,7 +117,7 @@ machine-config-repo/
 ### 1. Push to GitHub (5 minutes)
 
 ```bash
-cd /srv/monitoring_data/VMStation/machine-config-repo
+cd /opt/vmstation_org/machine-config-repo
 
 # Add remote (replace with your org name)
 git remote add origin https://github.com/<your-org>/cluster-config.git
@@ -176,7 +176,7 @@ jobs:
 
 ```bash
 # Add to crontab
-0 2 * * * cd /srv/monitoring_data/VMStation/machine-config-repo && ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/validate-config.yml > /var/log/config-drift.log 2>&1
+0 2 * * * cd /opt/vmstation_org/machine-config-repo && ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/validate-config.yml > /var/log/config-drift.log 2>&1
 ```
 
 ### 4. Document in Main Org README
@@ -203,7 +203,7 @@ Machine configuration version control for all VMStation hosts.
 ### Check for Drift
 
 ```bash
-cd /srv/monitoring_data/VMStation/machine-config-repo
+cd /opt/vmstation_org/machine-config-repo
 
 # Check all hosts
 ansible-playbook -i /srv/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/validate-config.yml

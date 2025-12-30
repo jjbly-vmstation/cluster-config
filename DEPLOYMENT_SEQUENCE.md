@@ -176,7 +176,7 @@ sudo ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/baseline-
 cd /opt/vmstation-org/cluster-setup
 sudo ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/infrastructure-services.yml --become
 ```
-# note: Installed helm, and python 2.16 intepreter manually on the homelab node, unsure of what caused these issues.
+note: Installed helm, and python 2.16 intepreter manually on the homelab node, unsure of what caused these issues.
 
 
 ## 4. Baseline Validation
@@ -196,7 +196,7 @@ sudo ansible-playbook -i ansible/inventory/hosts.yml playbooks/preflight-checks.
 	- Add all records listed in `/tmp/ipa.system.records.*.db` from the FreeIPA pod to your DNS system.
 		- Example:
 			```sh
-			kubectl exec -n identity freeipa-0 -- cat /tmp/ipa.system.records.*.db
+			sudo kubectl exec -n identity freeipa-0 -- cat /tmp/ipa.system.records.*.db
 			```
 	- Ensure `ipa.vmstation.local` and any other required hostnames resolve correctly from all cluster nodes and clients.
 
@@ -215,30 +215,76 @@ sudo ansible-playbook -i ansible/inventory/hosts.yml playbooks/preflight-checks.
 
 # Quick automated deployment
 # Automated
-cd /opt/vmstation-org/cluster-setup/ansible
-ansible-playbook -i /opt/vmstation-org/cluster-setup/ansible/inventory/hosts.yml \
-  /opt/vmstation-org/cluster-infra/ansible/playbooks/configure-dns-network-step4a.yml
-  
-	# Or run individual scripts
-	./scripts/extract-freeipa-dns-records.sh
-	./scripts/configure-dns-records.sh
-	./scripts/configure-network-ports.sh
-	./scripts/verify-freeipa-keycloak-readiness.sh
-
-sudo apt update
-sudo apt install ldap-utils krb5-user
-
----
-
-Continue with infrastructure services deployment after these checks.
-
-## 5. Cluster Deployment
 ```sh
-cd /opt/vmstation-org/cluster-infra
-sudo ansible-playbook -i /opt/vmstation-org/cluster-setup/ansible/inventory/hosts.yml ansible/playbooks/deploy-cluster.yaml --become -e "kubernetes_version=1.29"
+cd /opt/vmstation-org/cluster-infra/ansible
+sudo ansible-playbook -i /opt/vmstation-org/cluster-setup/ansible/inventory/hosts.yml /opt/vmstation-org/cluster-infra/ansible/playbooks/configure-coredns-freeipa.yml
+
+# # Or run individual scripts
+# ./scripts/extract-freeipa-dns-records.sh
+# ./scripts/configure-dns-records.sh
+# ./scripts/configure-network-ports.sh
+# ./scripts/verify-freeipa-keycloak-readiness.sh
+
+# # For testing ldap dir services requires exec into freeipa
+# sudo apt update
+# sudo apt install ldap-utils krb5-user
+
 ```
 
 
+## 4b. Setup CoreDNS 
+```sh
+cd /opt/vmstation-org/cluster-infra
+
+# Ensure kubelet is configured to use the CoreDNS service IP for cluster DNS:
+# Edit /var/lib/kubelet/config.yaml on all nodes and set:
+#
+# clusterDNS:
+#   - 10.233.0.10
+#
+# Then restart kubelet on each node:
+#   sudo systemctl restart kubelet
+#
+# This ensures all pods use the correct CoreDNS service for DNS resolution.
+
+ansible-playbook -i inventory/mycluster/hosts.yaml ansible/playbooks/configure-coredns-freeipa.yml
+
+
+
+
+# New wrapper script consolidating 4a+5
+sudo ./scripts/automate-identity-dns-and-coredns.sh --verbose --force-cleanup
+```
+## 4C. New wrapper script for 4a+4b+more
+```sh
+# Deploy only
+sudo ./scripts/identity-full-deploy.sh
+
+# Automated reset + deploy
+sudo FORCE_RESET=1 RESET_CONFIRM=yes ./scripts/identity-full-deploy.sh
+
+# Preview actions
+sudo DRY_RUN=1 FORCE_RESET=1 ./scripts/identity-full-deploy.sh
+
+# Custom credentials
+sudo FREEIPA_ADMIN_PASSWORD=secret KEYCLOAK_ADMIN_PASSWORD=secret ./scripts/identity-full-deploy.sh
+
+
+
+# Custom credentials with full reset
+cd /opt/vmstation-org/cluster-infra/ansible
+sudo FORCE_RESET=1 RESET_CONFIRM=yes FREEIPA_ADMIN_PASSWORD=secret123 KEYCLOAK_ADMIN_PASSWORD=secret123 ../scripts/identity-full-deploy.sh
+# The problem was that the DNS validation script kept applying the test node to homelab instead of the masternode :moyai:
+
+```
+
+
+## 6. Monitoring & Stack Deployment
+
+```sh
+cd /opt/vmstation-org/cluster-monitor-stack/ansible
+sudo ansible-playbook -i /opt/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/deploy-monitoring-stack.yml --become
+```
 **Reminder:**
 After deploying CoreDNS, monitoring, and cluster services, always validate that all identity and SSO endpoints are working:
 - FreeIPA web UI and LDAP (https://ipa.vmstation.local/ipa/ui, ldap://ipa.vmstation.local)
@@ -248,12 +294,7 @@ After deploying CoreDNS, monitoring, and cluster services, always validate that 
 
 This ensures that DNS, authentication, and identity integrations are functional before moving to workload or application deployment.
 
-## 6. Monitoring & Stack Deployment
 
-```sh
-cd /opt/vmstation-org/cluster-setup
-sudo ansible-playbook -i ansible/inventory/hosts.yml playbooks/deploy-monitoring-stack.yml --become
-```
 
 ## 7. Integrate cert-manager with FreeIPA CA
 - Configure cert-manager issuer to use FreeIPA CA
