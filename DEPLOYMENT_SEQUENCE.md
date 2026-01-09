@@ -289,7 +289,11 @@ sudo ../scripts/identity-full-deploy.sh --force-reset --reset-confirm
 sudo -E FORCE_RESET=1 RESET_CONFIRM=yes FREEIPA_ADMIN_PASSWORD=secret123 KEYCLOAK_ADMIN_PASSWORD=secret123 ../scripts/identity-full-deploy.sh
 
 # One-liner with git pull, chmod, and CLI arguments (RECOMMENDED):
-cd /opt/vmstation-org/cluster-infra && git pull origin main && chmod +x scripts/*.sh && cd ansible && sudo FREEIPA_ADMIN_PASSWORD=secret123 KEYCLOAK_ADMIN_PASSWORD=secret123 ../scripts/identity-full-deploy.sh --force-reset --reset-confirm
+cd /opt/vmstation-org/cluster-infra && \
+git pull origin main && \
+chmod +x scripts/*.sh && \
+cd ansible && \
+sudo FREEIPA_ADMIN_PASSWORD=secret123 KEYCLOAK_ADMIN_PASSWORD=secret123 ../scripts/identity-full-deploy.sh --force-reset --reset-confirm
 
 # IMPORTANT: Ensure all scripts are executable before running the deployment script.
 # If you see 'not found or not executable' errors, run:
@@ -305,6 +309,12 @@ cd /opt/vmstation-org/cluster-infra && git pull origin main && chmod +x scripts/
 # - The script now waits up to 100 seconds (10 retries x 10s) for Keycloak to become ready after restart
 # - Check Keycloak pod status: kubectl -n identity get pods -l app.kubernetes.io/name=keycloak
 # - Check Keycloak logs: kubectl -n identity logs -l app.kubernetes.io/name=keycloak --tail=100
+#
+# TROUBLESHOOTING: If oauth2-proxy is in CrashLoopBackOff:
+# - Fixed 2026-01-09: Shell argument parsing bug (double backslashes in YAML manifest)
+# - Ensure you've pulled the latest changes: git pull origin main
+# - Check oauth2-proxy logs: kubectl -n identity logs -l app=oauth2-proxy --tail=50
+# - The pod should now start successfully with proper argument parsing
 
 
 ```
