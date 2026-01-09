@@ -1,3 +1,6 @@
+# IMPORTANT: Ensure the secret management script is executable before running the deployment script.
+# If you see 'Permission denied' for apply-oauth2-proxy-secret.sh, run:
+#   sudo chmod +x ../scripts/apply-oauth2-proxy-secret.sh
 # VMStation Cluster Deployment Sequence
 
 This file documents the recommended order and commands for deploying the full stack, including identity, baseline, infrastructure, cluster, and monitoring. Use this as a reference for manual operations or CI/CD pipeline automation.
@@ -272,9 +275,37 @@ sudo FREEIPA_ADMIN_PASSWORD=secret KEYCLOAK_ADMIN_PASSWORD=secret ./scripts/iden
 
 
 # Custom credentials with full reset
-cd /opt/vmstation-org/cluster-infra/ansible
-sudo FORCE_RESET=1 RESET_CONFIRM=yes FREEIPA_ADMIN_PASSWORD=secret123 KEYCLOAK_ADMIN_PASSWORD=secret123 ../scripts/identity-full-deploy.sh
-# The problem was that the DNS validation script kept applying the test node to homelab instead of the masternode :moyai:
+
+cd /opt/vmstation-org/cluster-infra
+git pull origin main  # Pull latest script fixes from GitHub
+chmod +x scripts/*.sh  # Ensure all scripts are executable
+
+cd ansible
+
+# OPTION 1: Using command-line arguments (RECOMMENDED - works with any sudo configuration)
+sudo ../scripts/identity-full-deploy.sh --force-reset --reset-confirm
+
+# OPTION 2: Using environment variables with sudo -E (requires sudo -E to preserve variables)
+sudo -E FORCE_RESET=1 RESET_CONFIRM=yes FREEIPA_ADMIN_PASSWORD=secret123 KEYCLOAK_ADMIN_PASSWORD=secret123 ../scripts/identity-full-deploy.sh
+
+# One-liner with git pull, chmod, and CLI arguments (RECOMMENDED):
+cd /opt/vmstation-org/cluster-infra && git pull origin main && chmod +x scripts/*.sh && cd ansible && sudo FREEIPA_ADMIN_PASSWORD=secret123 KEYCLOAK_ADMIN_PASSWORD=secret123 ../scripts/identity-full-deploy.sh --force-reset --reset-confirm
+
+# IMPORTANT: Ensure all scripts are executable before running the deployment script.
+# If you see 'not found or not executable' errors, run:
+#   chmod +x scripts/*.sh  (from cluster-infra directory)
+#
+# TROUBLESHOOTING: If you see "Client already exists" errors:
+# - The keycloak-create-clients.sh script now handles existing clients gracefully (fixed 2026-01-09)
+# - Ensure you've pulled the latest changes from the main branch
+# - The script will now automatically extract secrets from existing clients
+# - If you see "For input string: 'json'" errors, ensure you have the latest version (fixed 2026-01-09)
+#
+# TROUBLESHOOTING: If Keycloak SSO configuration fails with "Connection refused":
+# - The script now waits up to 100 seconds (10 retries x 10s) for Keycloak to become ready after restart
+# - Check Keycloak pod status: kubectl -n identity get pods -l app.kubernetes.io/name=keycloak
+# - Check Keycloak logs: kubectl -n identity logs -l app.kubernetes.io/name=keycloak --tail=100
+
 
 ```
 
@@ -282,8 +313,16 @@ sudo FORCE_RESET=1 RESET_CONFIRM=yes FREEIPA_ADMIN_PASSWORD=secret123 KEYCLOAK_A
 ## 6. Monitoring & Stack Deployment
 
 ```sh
-cd /opt/vmstation-org/cluster-monitor-stack/ansible
-sudo ansible-playbook -i /opt/vmstation-org/cluster-setup/ansible/inventory/hosts.yml playbooks/deploy-monitoring-stack.yml --become
+
+cd /opt/vmstation-org/cluster-monitor-stack
+
+sudo ansible-playbook -i /opt/vmstation-org/cluster-setup/ansible/inventory/hosts.yml ansible/playbooks/preflight-monitoring.yaml --become
+
+sudo ansible-playbook -i /opt/vmstation-org/cluster-setup/ansible/inventory/hosts.yml ansible/playbooks/deploy-monitoring-stack.yaml --become
+
+
+sudo ansible-playbook -i /opt/vmstation-org/cluster-setup/ansible/inventory/hosts.yml ansible/playbooks/deploy-monitoring-stack.yaml --become -e keycloak_admin_user=admin -e keycloak_admin_password=secret123 -e keycloak_url='http://192.168.4.63:30180'
+
 ```
 **Reminder:**
 After deploying CoreDNS, monitoring, and cluster services, always validate that all identity and SSO endpoints are working:
