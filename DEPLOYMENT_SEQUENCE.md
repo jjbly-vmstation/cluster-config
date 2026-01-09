@@ -315,6 +315,25 @@ sudo FREEIPA_ADMIN_PASSWORD=secret123 KEYCLOAK_ADMIN_PASSWORD=secret123 ../scrip
 # - Ensure you've pulled the latest changes: git pull origin main
 # - Check oauth2-proxy logs: kubectl -n identity logs -l app=oauth2-proxy --tail=50
 # - The pod should now start successfully with proper argument parsing
+#
+# TROUBLESHOOTING: If FreeIPA pod enters "Failed" state:
+# - Fixed 2026-01-09: Improved liveness/readiness probes and added resource limits
+# - Common causes:
+#   1. OOMKilled - Pod ran out of memory (now has 2Gi-4Gi limits)
+#   2. Liveness probe killing healthy pod (now more lenient with better logic)
+#   3. FreeIPA install failure (check logs with diagnostic script)
+# - Diagnostic script: sudo /opt/vmstation-org/cluster-infra/scripts/diagnose-freeipa-failure.sh
+# - Manual checks:
+#   kubectl -n identity describe pod freeipa-0  # Check events and conditions
+#   kubectl -n identity logs freeipa-0 -c freeipa-server --tail=200  # Check logs
+#   kubectl -n identity logs freeipa-0 -c freeipa-server --previous  # Check previous crash
+# - The identity-service-accounts role now attempts automatic restart on failure
+# - If FreeIPA repeatedly fails:
+#   1. Check memory available on control-plane node: kubectl top nodes
+#   2. Check storage permissions: ls -lah /srv/monitoring-data/freeipa/
+#   3. Review manifest: /opt/vmstation-org/cluster-infra/manifests/identity/freeipa.yaml
+#   4. Consider increasing memory limits if OOMKilled
+# - FreeIPA requires at least 2Gi memory and can take 30+ minutes for first-time install
 
 
 ```
